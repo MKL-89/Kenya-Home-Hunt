@@ -7,6 +7,7 @@
  */
 
 export * from './cityStats';
+export * from './errorEnvelope';
 export * from './favorite';
 export * from './healthStatus';
 export * from './house';
@@ -19,6 +20,8 @@ export * from './landlordStats';
 export * from './listHousesParams';
 export * from './listHousesStatus';
 export * from './tenantStats';
+export * from './uploadUrlRequest';
+export * from './uploadUrlResponse';
 export * from './user';
 export * from './userInput';
 export * from './userInputRole';

@@ -1,6 +1,6 @@
 import { Link } from "wouter";
 import { Show, useClerk, useUser } from "@clerk/react";
-import { useGetMe } from "@workspace/api-client-react";
+import { useGetMe, getGetMeQueryKey } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Map, LayoutDashboard, Heart, Plus, Building, LogOut, Menu } from "lucide-react";
 import {
@@ -13,7 +13,7 @@ import {
 export function Navbar() {
   const { signOut } = useClerk();
   const { user: clerkUser } = useUser();
-  const { data: dbUser } = useGetMe({ query: { enabled: !!clerkUser?.id } });
+  const { data: dbUser } = useGetMe({ query: { enabled: !!clerkUser?.id, queryKey: getGetMeQueryKey() } });
   
   const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
 
