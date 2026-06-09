@@ -3,13 +3,22 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: HomeHunt real estate API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: users
+    description: User profile and role management
+  - name: houses
+    description: House listings management
+  - name: favorites
+    description: Tenant favorites management
+  - name: stats
+    description: Dashboard statistics
+
 paths:
   /healthz:
     get:
@@ -24,6 +33,302 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /users/me:
+    get:
+      operationId: getMe
+      tags: [users]
+      summary: Get current user profile
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Unauthorized
+    put:
+      operationId: upsertUser
+      tags: [users]
+      summary: Create or update current user profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserInput"
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /houses:
+    get:
+      operationId: listHouses
+      tags: [houses]
+      summary: List all houses (with optional filters)
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [vacant, occupied]
+        - name: city
+          in: query
+          schema:
+            type: string
+        - name: minRent
+          in: query
+          schema:
+            type: number
+        - name: maxRent
+          in: query
+          schema:
+            type: number
+        - name: bedrooms
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of houses
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/House"
+    post:
+      operationId: createHouse
+      tags: [houses]
+      summary: Create a new house listing (landlord only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HouseInput"
+      responses:
+        "201":
+          description: Created house
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/House"
+        "401":
+          description: Unauthorized
+        "403":
+          description: Not a landlord
+
+  /houses/my:
+    get:
+      operationId: listMyHouses
+      tags: [houses]
+      summary: List houses owned by the current landlord
+      responses:
+        "200":
+          description: Landlord's houses
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/House"
+        "401":
+          description: Unauthorized
+
+  /houses/{id}:
+    get:
+      operationId: getHouse
+      tags: [houses]
+      summary: Get house details by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: House details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/House"
+        "404":
+          description: Not found
+    put:
+      operationId: updateHouse
+      tags: [houses]
+      summary: Update a house listing (landlord owner only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HouseUpdate"
+      responses:
+        "200":
+          description: Updated house
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/House"
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+    delete:
+      operationId: deleteHouse
+      tags: [houses]
+      summary: Delete a house listing (landlord owner only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+        "401":
+          description: Unauthorized
+        "404":
+          description: Not found
+
+  /houses/{id}/status:
+    patch:
+      operationId: updateHouseStatus
+      tags: [houses]
+      summary: Toggle house status between vacant and occupied
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HouseStatusUpdate"
+      responses:
+        "200":
+          description: Updated house
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/House"
+
+  /favorites:
+    get:
+      operationId: listFavorites
+      tags: [favorites]
+      summary: Get current tenant's favorite houses
+      responses:
+        "200":
+          description: List of favorited houses
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/House"
+        "401":
+          description: Unauthorized
+
+  /favorites/{houseId}:
+    post:
+      operationId: addFavorite
+      tags: [favorites]
+      summary: Add a house to favorites
+      parameters:
+        - name: houseId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "201":
+          description: Favorite added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Favorite"
+        "401":
+          description: Unauthorized
+    delete:
+      operationId: removeFavorite
+      tags: [favorites]
+      summary: Remove a house from favorites
+      parameters:
+        - name: houseId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Removed
+        "401":
+          description: Unauthorized
+
+  /stats/tenant:
+    get:
+      operationId: getTenantStats
+      tags: [stats]
+      summary: Get tenant dashboard stats (favorites count, available houses near cities)
+      responses:
+        "200":
+          description: Tenant stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantStats"
+        "401":
+          description: Unauthorized
+
+  /stats/landlord:
+    get:
+      operationId: getLandlordStats
+      tags: [stats]
+      summary: Get landlord dashboard stats (total/vacant/occupied counts, avg rent)
+      responses:
+        "200":
+          description: Landlord stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LandlordStats"
+        "401":
+          description: Unauthorized
+
+  /stats/city-breakdown:
+    get:
+      operationId: getCityBreakdown
+      tags: [stats]
+      summary: Get house counts and average rents grouped by city
+      responses:
+        "200":
+          description: City breakdown
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CityStats"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +339,209 @@ components:
       required:
         - status
 
+    User:
+      type: object
+      required: [id, clerkId, role, email]
+      properties:
+        id:
+          type: integer
+        clerkId:
+          type: string
+        email:
+          type: string
+        name:
+          type: ["string", "null"]
+        phone:
+          type: ["string", "null"]
+        role:
+          type: string
+          enum: [tenant, landlord]
+        createdAt:
+          type: string
+
+    UserInput:
+      type: object
+      required: [role, email]
+      properties:
+        email:
+          type: string
+        name:
+          type: string
+        phone:
+          type: string
+        role:
+          type: string
+          enum: [tenant, landlord]
+
+    House:
+      type: object
+      required: [id, landlordId, title, rentPrice, city, address, latitude, longitude, status]
+      properties:
+        id:
+          type: integer
+        landlordId:
+          type: integer
+        landlordName:
+          type: ["string", "null"]
+        landlordPhone:
+          type: ["string", "null"]
+        title:
+          type: string
+        description:
+          type: ["string", "null"]
+        rentPrice:
+          type: number
+        bedrooms:
+          type: integer
+        bathrooms:
+          type: integer
+        city:
+          type: string
+        address:
+          type: string
+        latitude:
+          type: number
+        longitude:
+          type: number
+        status:
+          type: string
+          enum: [vacant, occupied]
+        images:
+          type: array
+          items:
+            type: string
+        amenities:
+          type: array
+          items:
+            type: string
+        isFavorited:
+          type: ["boolean", "null"]
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+
+    HouseInput:
+      type: object
+      required: [title, rentPrice, city, address, latitude, longitude]
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        rentPrice:
+          type: number
+        bedrooms:
+          type: integer
+        bathrooms:
+          type: integer
+        city:
+          type: string
+        address:
+          type: string
+        latitude:
+          type: number
+        longitude:
+          type: number
+        images:
+          type: array
+          items:
+            type: string
+        amenities:
+          type: array
+          items:
+            type: string
+
+    HouseUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        rentPrice:
+          type: number
+        bedrooms:
+          type: integer
+        bathrooms:
+          type: integer
+        city:
+          type: string
+        address:
+          type: string
+        latitude:
+          type: number
+        longitude:
+          type: number
+        images:
+          type: array
+          items:
+            type: string
+        amenities:
+          type: array
+          items:
+            type: string
+
+    HouseStatusUpdate:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [vacant, occupied]
+
+    Favorite:
+      type: object
+      required: [id, tenantId, houseId]
+      properties:
+        id:
+          type: integer
+        tenantId:
+          type: integer
+        houseId:
+          type: integer
+        createdAt:
+          type: string
+
+    TenantStats:
+      type: object
+      required: [favoritesCount, totalVacantHouses, recentlyAdded]
+      properties:
+        favoritesCount:
+          type: integer
+        totalVacantHouses:
+          type: integer
+        recentlyAdded:
+          type: integer
+        cityBreakdown:
+          type: array
+          items:
+            $ref: "#/components/schemas/CityStats"
+
+    LandlordStats:
+      type: object
+      required: [totalListings, vacantCount, occupiedCount, avgRent]
+      properties:
+        totalListings:
+          type: integer
+        vacantCount:
+          type: integer
+        occupiedCount:
+          type: integer
+        avgRent:
+          type: number
+        totalMonthlyRevenue:
+          type: number
+
+    CityStats:
+      type: object
+      required: [city, total, vacant, avgRent]
+      properties:
+        city:
+          type: string
+        total:
+          type: integer
+        vacant:
+          type: integer
+        avgRent:
+          type: number
