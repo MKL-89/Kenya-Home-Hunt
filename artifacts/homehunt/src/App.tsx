@@ -17,6 +17,8 @@ import { MapPage } from "@/pages/map";
 import { HouseDetail } from "@/pages/house-detail";
 import { Favorites } from "@/pages/favorites";
 import { HouseForm } from "@/pages/house-form";
+import { Profile } from "@/pages/profile";
+import { InquiriesPage } from "@/pages/inquiries";
 import NotFound from "@/pages/not-found";
 import { useGetMe, getGetMeQueryKey } from "@workspace/api-client-react";
 import { Loader2 } from "lucide-react";
@@ -179,6 +181,8 @@ function ClerkProviderWithRoutes() {
           <Route path="/favorites" component={Favorites} />
           <Route path="/add-house" component={HouseForm} />
           <Route path="/edit-house/:id" component={HouseForm} />
+          <Route path="/profile" component={Profile} />
+          <Route path="/inquiries" component={InquiriesPage} />
           <Route component={NotFound} />
         </Switch>
       </QueryClientProvider>

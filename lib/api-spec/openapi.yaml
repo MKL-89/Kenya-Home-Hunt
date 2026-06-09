@@ -18,6 +18,8 @@ tags:
     description: Tenant favorites management
   - name: stats
     description: Dashboard statistics
+  - name: inquiries
+    description: Tenant-to-landlord inquiry messages
   - name: Storage
     description: Object storage upload and serving endpoints.
 
@@ -331,6 +333,99 @@ paths:
                 items:
                   $ref: "#/components/schemas/CityStats"
 
+  /inquiries:
+    post:
+      tags: [inquiries]
+      operationId: sendInquiry
+      summary: Send an inquiry to a landlord
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InquiryInput'
+      responses:
+        '201':
+          description: Inquiry sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Inquiry'
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
+  /inquiries/received:
+    get:
+      tags: [inquiries]
+      operationId: listReceivedInquiries
+      summary: List inquiries received by the landlord
+      responses:
+        '200':
+          description: List of received inquiries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Inquiry'
+
+  /inquiries/sent:
+    get:
+      tags: [inquiries]
+      operationId: listSentInquiries
+      summary: List inquiries sent by the tenant
+      responses:
+        '200':
+          description: List of sent inquiries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Inquiry'
+
+  /inquiries/unread-count:
+    get:
+      tags: [inquiries]
+      operationId: getUnreadInquiriesCount
+      summary: Get unread inquiry count for landlord
+      responses:
+        '200':
+          description: Unread count
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnreadCount'
+
+  /inquiries/{id}/read:
+    patch:
+      tags: [inquiries]
+      operationId: markInquiryRead
+      summary: Mark an inquiry as read
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Updated inquiry
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Inquiry'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+
   /storage/uploads/request-url:
     post:
       tags: [Storage]
@@ -618,6 +713,8 @@ components:
           type: number
         totalMonthlyRevenue:
           type: number
+        unreadInquiries:
+          type: integer
 
     CityStats:
       type: object
@@ -631,6 +728,53 @@ components:
           type: integer
         avgRent:
           type: number
+
+    Inquiry:
+      type: object
+      required: [id, houseId, message, status, createdAt]
+      properties:
+        id:
+          type: integer
+        houseId:
+          type: integer
+        houseTitle:
+          type: ["string", "null"]
+        houseCity:
+          type: ["string", "null"]
+        message:
+          type: string
+        status:
+          type: string
+          enum: [unread, read]
+        tenantName:
+          type: ["string", "null"]
+        tenantPhone:
+          type: ["string", "null"]
+        landlordName:
+          type: ["string", "null"]
+        landlordPhone:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+
+    InquiryInput:
+      type: object
+      required: [houseId, message]
+      properties:
+        houseId:
+          type: integer
+        message:
+          type: string
+          minLength: 10
+        tenantPhone:
+          type: string
+
+    UnreadCount:
+      type: object
+      required: [count]
+      properties:
+        count:
+          type: integer
 
     UploadUrlRequest:
       type: object

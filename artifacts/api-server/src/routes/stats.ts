@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { db, housesTable, usersTable, favoritesTable } from "@workspace/db";
+import { db, housesTable, usersTable, favoritesTable, inquiriesTable } from "@workspace/db";
 import { eq, and, count, avg, sql } from "drizzle-orm";
 import { requireAuth } from "./users";
 
@@ -63,12 +63,17 @@ router.get("/stats/landlord", requireAuth, async (req: any, res: any) => {
       and(eq(housesTable.landlordId, user[0].id), eq(housesTable.status, "occupied"))
     );
 
+    const [unreadRow] = await db.select({ count: count() }).from(inquiriesTable).where(
+      and(eq(inquiriesTable.landlordId, user[0].id), eq(inquiriesTable.status, "unread"))
+    );
+
     return res.json({
       totalListings: total.count,
       vacantCount: vacant.count,
       occupiedCount: occupied.count,
       avgRent: Number(avgRentRow.avg) || 0,
       totalMonthlyRevenue: Number(totalRevRow.total) || 0,
+      unreadInquiries: unreadRow.count,
     });
   } catch (err) {
     req.log.error(err);

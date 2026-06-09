@@ -28,9 +28,12 @@ import type {
   HouseInput,
   HouseStatusUpdate,
   HouseUpdate,
+  Inquiry,
+  InquiryInput,
   LandlordStats,
   ListHousesParams,
   TenantStats,
+  UnreadCount,
   UploadUrlRequest,
   UploadUrlResponse,
   User,
@@ -1245,6 +1248,378 @@ export function useGetCityBreakdown<TData = Awaited<ReturnType<typeof getCityBre
 
 
 
+
+export const getSendInquiryUrl = () => {
+
+
+
+
+  return `/api/inquiries`
+}
+
+/**
+ * @summary Send an inquiry to a landlord
+ */
+export const sendInquiry = async (inquiryInput: InquiryInput, options?: RequestInit): Promise<Inquiry> => {
+
+  return customFetch<Inquiry>(getSendInquiryUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      inquiryInput,)
+  }
+);}
+
+
+
+
+export const getSendInquiryMutationOptions = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendInquiry>>, TError,{data: BodyType<InquiryInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof sendInquiry>>, TError,{data: BodyType<InquiryInput>}, TContext> => {
+
+const mutationKey = ['sendInquiry'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sendInquiry>>, {data: BodyType<InquiryInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  sendInquiry(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SendInquiryMutationResult = NonNullable<Awaited<ReturnType<typeof sendInquiry>>>
+    export type SendInquiryMutationBody = BodyType<InquiryInput>
+    export type SendInquiryMutationError = ErrorType<ErrorEnvelope>
+
+    /**
+ * @summary Send an inquiry to a landlord
+ */
+export const useSendInquiry = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendInquiry>>, TError,{data: BodyType<InquiryInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof sendInquiry>>,
+        TError,
+        {data: BodyType<InquiryInput>},
+        TContext
+      > => {
+      return useMutation(getSendInquiryMutationOptions(options));
+    }
+
+export const getListReceivedInquiriesUrl = () => {
+
+
+
+
+  return `/api/inquiries/received`
+}
+
+/**
+ * @summary List inquiries received by the landlord
+ */
+export const listReceivedInquiries = async ( options?: RequestInit): Promise<Inquiry[]> => {
+
+  return customFetch<Inquiry[]>(getListReceivedInquiriesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListReceivedInquiriesQueryKey = () => {
+    return [
+    `/api/inquiries/received`
+    ] as const;
+    }
+
+
+export const getListReceivedInquiriesQueryOptions = <TData = Awaited<ReturnType<typeof listReceivedInquiries>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listReceivedInquiries>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListReceivedInquiriesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listReceivedInquiries>>> = ({ signal }) => listReceivedInquiries({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listReceivedInquiries>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListReceivedInquiriesQueryResult = NonNullable<Awaited<ReturnType<typeof listReceivedInquiries>>>
+export type ListReceivedInquiriesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List inquiries received by the landlord
+ */
+
+export function useListReceivedInquiries<TData = Awaited<ReturnType<typeof listReceivedInquiries>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listReceivedInquiries>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListReceivedInquiriesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getListSentInquiriesUrl = () => {
+
+
+
+
+  return `/api/inquiries/sent`
+}
+
+/**
+ * @summary List inquiries sent by the tenant
+ */
+export const listSentInquiries = async ( options?: RequestInit): Promise<Inquiry[]> => {
+
+  return customFetch<Inquiry[]>(getListSentInquiriesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListSentInquiriesQueryKey = () => {
+    return [
+    `/api/inquiries/sent`
+    ] as const;
+    }
+
+
+export const getListSentInquiriesQueryOptions = <TData = Awaited<ReturnType<typeof listSentInquiries>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSentInquiries>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListSentInquiriesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listSentInquiries>>> = ({ signal }) => listSentInquiries({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listSentInquiries>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListSentInquiriesQueryResult = NonNullable<Awaited<ReturnType<typeof listSentInquiries>>>
+export type ListSentInquiriesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List inquiries sent by the tenant
+ */
+
+export function useListSentInquiries<TData = Awaited<ReturnType<typeof listSentInquiries>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listSentInquiries>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListSentInquiriesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getGetUnreadInquiriesCountUrl = () => {
+
+
+
+
+  return `/api/inquiries/unread-count`
+}
+
+/**
+ * @summary Get unread inquiry count for landlord
+ */
+export const getUnreadInquiriesCount = async ( options?: RequestInit): Promise<UnreadCount> => {
+
+  return customFetch<UnreadCount>(getGetUnreadInquiriesCountUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetUnreadInquiriesCountQueryKey = () => {
+    return [
+    `/api/inquiries/unread-count`
+    ] as const;
+    }
+
+
+export const getGetUnreadInquiriesCountQueryOptions = <TData = Awaited<ReturnType<typeof getUnreadInquiriesCount>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getUnreadInquiriesCount>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetUnreadInquiriesCountQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getUnreadInquiriesCount>>> = ({ signal }) => getUnreadInquiriesCount({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getUnreadInquiriesCount>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetUnreadInquiriesCountQueryResult = NonNullable<Awaited<ReturnType<typeof getUnreadInquiriesCount>>>
+export type GetUnreadInquiriesCountQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get unread inquiry count for landlord
+ */
+
+export function useGetUnreadInquiriesCount<TData = Awaited<ReturnType<typeof getUnreadInquiriesCount>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getUnreadInquiriesCount>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetUnreadInquiriesCountQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getMarkInquiryReadUrl = (id: number,) => {
+
+
+
+
+  return `/api/inquiries/${id}/read`
+}
+
+/**
+ * @summary Mark an inquiry as read
+ */
+export const markInquiryRead = async (id: number, options?: RequestInit): Promise<Inquiry> => {
+
+  return customFetch<Inquiry>(getMarkInquiryReadUrl(id),
+  {
+    ...options,
+    method: 'PATCH'
+
+
+  }
+);}
+
+
+
+
+export const getMarkInquiryReadMutationOptions = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markInquiryRead>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof markInquiryRead>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['markInquiryRead'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof markInquiryRead>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  markInquiryRead(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type MarkInquiryReadMutationResult = NonNullable<Awaited<ReturnType<typeof markInquiryRead>>>
+
+    export type MarkInquiryReadMutationError = ErrorType<ErrorEnvelope>
+
+    /**
+ * @summary Mark an inquiry as read
+ */
+export const useMarkInquiryRead = <TError = ErrorType<ErrorEnvelope>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markInquiryRead>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof markInquiryRead>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getMarkInquiryReadMutationOptions(options));
+    }
 
 export const getRequestUploadUrlUrl = () => {
 
