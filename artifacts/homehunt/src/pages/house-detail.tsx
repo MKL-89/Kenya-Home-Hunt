@@ -1,9 +1,19 @@
+import { useState } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
-import { useGetHouse, getGetHouseQueryKey, useAddFavorite, useRemoveFavorite, getListFavoritesQueryKey, getListHousesQueryKey } from "@workspace/api-client-react";
+import {
+  useGetHouse, getGetHouseQueryKey,
+  useAddFavorite, useRemoveFavorite,
+  getListFavoritesQueryKey, getListHousesQueryKey,
+  useSendInquiry,
+} from "@workspace/api-client-react";
+import { useUser } from "@clerk/react";
 import { useParams, Link } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { MapPin, Bed, Bath, ArrowLeft, Heart, Phone, User, CheckCircle2 } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { MapPin, Bed, Bath, ArrowLeft, Heart, Phone, User, CheckCircle2, Send, Loader2 } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
 import { PropertyMap } from "@/components/Map";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
@@ -14,6 +24,7 @@ import { useQueryClient } from "@tanstack/react-query";
 export function HouseDetail() {
   const { id } = useParams<{ id: string }>();
   const houseId = parseInt(id || "0");
+  const { isSignedIn } = useUser();
   
   const queryClient = useQueryClient();
   const { data: house, isLoading } = useGetHouse(houseId, {
@@ -22,6 +33,27 @@ export function HouseDetail() {
 
   const addFavorite = useAddFavorite();
   const removeFavorite = useRemoveFavorite();
+  const sendInquiry = useSendInquiry();
+
+  const [inquiryMessage, setInquiryMessage] = useState("");
+  const [inquiryPhone, setInquiryPhone] = useState("");
+  const [inquirySent, setInquirySent] = useState(false);
+
+  const handleSendInquiry = async () => {
+    if (!inquiryMessage.trim() || inquiryMessage.length < 10) {
+      toast.error("Message must be at least 10 characters");
+      return;
+    }
+    try {
+      await sendInquiry.mutateAsync({
+        data: { houseId, message: inquiryMessage, tenantPhone: inquiryPhone || undefined },
+      });
+      setInquirySent(true);
+      toast.success("Message sent to landlord!");
+    } catch {
+      toast.error("Failed to send message");
+    }
+  };
 
   const handleFavoriteToggle = async () => {
     if (!house) return;
@@ -191,24 +223,65 @@ export function HouseDetail() {
                 
                 <div className="pt-6 mt-6 border-t">
                   <h3 className="font-semibold mb-4">Contact Landlord</h3>
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
-                        <User className="h-5 w-5" />
-                      </div>
-                      <div className="font-medium">{house.landlordName || "Unknown Landlord"}</div>
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                      <User className="h-5 w-5" />
                     </div>
-                    {house.landlordPhone && (
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
-                          <Phone className="h-5 w-5" />
-                        </div>
-                        <a href={`tel:${house.landlordPhone}`} className="font-medium text-primary hover:underline">
-                          {house.landlordPhone}
+                    <div>
+                      <div className="font-medium">{house.landlordName || "Landlord"}</div>
+                      {house.landlordPhone && (
+                        <a href={`tel:${house.landlordPhone}`} className="text-sm text-primary hover:underline flex items-center gap-1">
+                          <Phone className="h-3 w-3" />{house.landlordPhone}
                         </a>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
+
+                  {!isSignedIn ? (
+                    <Link href="/sign-in">
+                      <Button variant="outline" className="w-full">
+                        Sign in to send a message
+                      </Button>
+                    </Link>
+                  ) : inquirySent ? (
+                    <div className="rounded-lg bg-primary/10 p-4 text-center">
+                      <CheckCircle2 className="h-6 w-6 text-primary mx-auto mb-2" />
+                      <p className="text-sm font-medium text-primary">Message sent!</p>
+                      <p className="text-xs text-muted-foreground mt-1">The landlord will be in touch.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div>
+                        <Label className="text-xs text-muted-foreground mb-1 block">Your phone (optional)</Label>
+                        <Input
+                          placeholder="+254 712 345 678"
+                          value={inquiryPhone}
+                          onChange={(e) => setInquiryPhone(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs text-muted-foreground mb-1 block">Message</Label>
+                        <Textarea
+                          placeholder="Hi, I'm interested in this property. Is it still available?"
+                          value={inquiryMessage}
+                          onChange={(e) => setInquiryMessage(e.target.value)}
+                          className="min-h-[100px] resize-none"
+                        />
+                      </div>
+                      <Button
+                        className="w-full"
+                        onClick={handleSendInquiry}
+                        disabled={sendInquiry.isPending || inquiryMessage.length < 10}
+                      >
+                        {sendInquiry.isPending ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <Send className="mr-2 h-4 w-4" />
+                        )}
+                        Send Message
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

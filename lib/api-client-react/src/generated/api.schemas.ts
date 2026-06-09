@@ -145,6 +145,46 @@ export interface LandlordStats {
   occupiedCount: number;
   avgRent: number;
   totalMonthlyRevenue?: number;
+  unreadInquiries?: number;
+}
+
+export type InquiryStatus = typeof InquiryStatus[keyof typeof InquiryStatus];
+
+
+export const InquiryStatus = {
+  unread: 'unread',
+  read: 'read',
+} as const;
+
+export interface Inquiry {
+  id: number;
+  houseId: number;
+  /** @nullable */
+  houseTitle?: string | null;
+  /** @nullable */
+  houseCity?: string | null;
+  message: string;
+  status: InquiryStatus;
+  /** @nullable */
+  tenantName?: string | null;
+  /** @nullable */
+  tenantPhone?: string | null;
+  /** @nullable */
+  landlordName?: string | null;
+  /** @nullable */
+  landlordPhone?: string | null;
+  createdAt: string;
+}
+
+export interface InquiryInput {
+  houseId: number;
+  /** @minLength 10 */
+  message: string;
+  tenantPhone?: string;
+}
+
+export interface UnreadCount {
+  count: number;
 }
 
 export interface UploadUrlRequest {

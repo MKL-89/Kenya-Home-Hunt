@@ -315,7 +315,8 @@ export const GetLandlordStatsResponse = zod.object({
   "vacantCount": zod.number(),
   "occupiedCount": zod.number(),
   "avgRent": zod.number(),
-  "totalMonthlyRevenue": zod.number().optional()
+  "totalMonthlyRevenue": zod.number().optional(),
+  "unreadInquiries": zod.number().optional()
 })
 
 
@@ -329,6 +330,88 @@ export const GetCityBreakdownResponseItem = zod.object({
   "avgRent": zod.number()
 })
 export const GetCityBreakdownResponse = zod.array(GetCityBreakdownResponseItem)
+
+
+/**
+ * @summary Send an inquiry to a landlord
+ */
+export const sendInquiryBodyMessageMin = 10;
+
+
+
+export const SendInquiryBody = zod.object({
+  "houseId": zod.number(),
+  "message": zod.string().min(sendInquiryBodyMessageMin),
+  "tenantPhone": zod.string().optional()
+})
+
+
+/**
+ * @summary List inquiries received by the landlord
+ */
+export const ListReceivedInquiriesResponseItem = zod.object({
+  "id": zod.number(),
+  "houseId": zod.number(),
+  "houseTitle": zod.string().nullish(),
+  "houseCity": zod.string().nullish(),
+  "message": zod.string(),
+  "status": zod.enum(['unread', 'read']),
+  "tenantName": zod.string().nullish(),
+  "tenantPhone": zod.string().nullish(),
+  "landlordName": zod.string().nullish(),
+  "landlordPhone": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+export const ListReceivedInquiriesResponse = zod.array(ListReceivedInquiriesResponseItem)
+
+
+/**
+ * @summary List inquiries sent by the tenant
+ */
+export const ListSentInquiriesResponseItem = zod.object({
+  "id": zod.number(),
+  "houseId": zod.number(),
+  "houseTitle": zod.string().nullish(),
+  "houseCity": zod.string().nullish(),
+  "message": zod.string(),
+  "status": zod.enum(['unread', 'read']),
+  "tenantName": zod.string().nullish(),
+  "tenantPhone": zod.string().nullish(),
+  "landlordName": zod.string().nullish(),
+  "landlordPhone": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+export const ListSentInquiriesResponse = zod.array(ListSentInquiriesResponseItem)
+
+
+/**
+ * @summary Get unread inquiry count for landlord
+ */
+export const GetUnreadInquiriesCountResponse = zod.object({
+  "count": zod.number()
+})
+
+
+/**
+ * @summary Mark an inquiry as read
+ */
+export const MarkInquiryReadParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const MarkInquiryReadResponse = zod.object({
+  "id": zod.number(),
+  "houseId": zod.number(),
+  "houseTitle": zod.string().nullish(),
+  "houseCity": zod.string().nullish(),
+  "message": zod.string(),
+  "status": zod.enum(['unread', 'read']),
+  "tenantName": zod.string().nullish(),
+  "tenantPhone": zod.string().nullish(),
+  "landlordName": zod.string().nullish(),
+  "landlordPhone": zod.string().nullish(),
+  "createdAt": zod.string()
+})
 
 
 /**

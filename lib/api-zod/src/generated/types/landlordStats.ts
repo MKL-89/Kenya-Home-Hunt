@@ -12,4 +12,5 @@ export interface LandlordStats {
   occupiedCount: number;
   avgRent: number;
   totalMonthlyRevenue?: number;
+  unreadInquiries?: number;
 }
