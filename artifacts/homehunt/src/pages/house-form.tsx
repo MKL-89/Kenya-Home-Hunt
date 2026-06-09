@@ -1,10 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { useLocation, useParams } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useCreateHouse, useUpdateHouse, useGetHouse, getGetHouseQueryKey } from "@workspace/api-client-react";
+import { useUpload } from "@workspace/object-storage-web";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -12,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { PropertyMap } from "@/components/Map";
-import { Loader2, Plus, X } from "lucide-react";
+import { Loader2, Upload, X, ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import { queryClient } from "@/lib/queryClient";
 
@@ -43,6 +44,7 @@ export function HouseForm() {
   const isEditing = !!id && id !== "new";
   const houseId = parseInt(id || "0");
   const [, setLocation] = useLocation();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: existingHouse, isLoading: isLoadingHouse } = useGetHouse(houseId, {
     query: { enabled: isEditing, queryKey: getGetHouseQueryKey(houseId) }
@@ -51,7 +53,9 @@ export function HouseForm() {
   const createHouse = useCreateHouse();
   const updateHouse = useUpdateHouse();
 
-  const [imageUrl, setImageUrl] = useState("");
+  const { uploadFile, isUploading, progress } = useUpload({
+    onError: (err) => toast.error(`Upload failed: ${err.message}`),
+  });
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -104,12 +108,19 @@ export function HouseForm() {
     }
   };
 
-  const addImage = () => {
-    if (imageUrl) {
-      const currentImages = form.getValues("images");
-      form.setValue("images", [...currentImages, imageUrl]);
-      setImageUrl("");
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    for (const file of files) {
+      const result = await uploadFile(file);
+      if (result) {
+        const servingUrl = `/api/storage${result.objectPath}`;
+        const currentImages = form.getValues("images");
+        form.setValue("images", [...currentImages, servingUrl]);
+        toast.success(`${file.name} uploaded`);
+      }
     }
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const removeImage = (index: number) => {
@@ -281,38 +292,58 @@ export function HouseForm() {
                 </div>
 
                 <div className="space-y-3">
-                  <FormLabel>Images (URLs)</FormLabel>
-                  <div className="flex gap-2">
-                    <Input 
-                      placeholder="https://..." 
-                      value={imageUrl} 
-                      onChange={(e) => setImageUrl(e.target.value)} 
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          addImage();
-                        }
-                      }}
-                    />
-                    <Button type="button" onClick={addImage} variant="secondary"><Plus className="h-4 w-4" /></Button>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-3 mt-4">
-                    {form.watch("images").map((img, index) => (
-                      <div key={index} className="relative aspect-video rounded-md overflow-hidden border group">
-                        <img src={img} alt={`Preview ${index}`} className="w-full h-full object-cover" />
-                        <Button 
-                          type="button" 
-                          variant="destructive" 
-                          size="icon" 
-                          className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={() => removeImage(index)}
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
+                  <FormLabel>Photos</FormLabel>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    onChange={handleFileUpload}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full h-24 border-dashed flex flex-col gap-1"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploading}
+                  >
+                    {isUploading ? (
+                      <>
+                        <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                        <span className="text-sm text-muted-foreground">Uploading… {progress}%</span>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="h-5 w-5 text-muted-foreground" />
+                        <span className="text-sm text-muted-foreground">Click to upload photos (JPG, PNG, WebP)</span>
+                      </>
+                    )}
+                  </Button>
+
+                  {form.watch("images").length > 0 ? (
+                    <div className="grid grid-cols-2 gap-3">
+                      {form.watch("images").map((img, index) => (
+                        <div key={index} className="relative aspect-video rounded-md overflow-hidden border group">
+                          <img src={img} alt={`Photo ${index + 1}`} className="w-full h-full object-cover" />
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="icon"
+                            className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={() => removeImage(index)}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center h-20 rounded-md border border-dashed text-muted-foreground text-sm gap-1">
+                      <ImageIcon className="h-5 w-5" />
+                      <span>No photos yet</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

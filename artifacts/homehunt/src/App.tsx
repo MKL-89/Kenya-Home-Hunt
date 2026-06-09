@@ -18,7 +18,7 @@ import { HouseDetail } from "@/pages/house-detail";
 import { Favorites } from "@/pages/favorites";
 import { HouseForm } from "@/pages/house-form";
 import NotFound from "@/pages/not-found";
-import { useGetMe } from "@workspace/api-client-react";
+import { useGetMe, getGetMeQueryKey } from "@workspace/api-client-react";
 import { Loader2 } from "lucide-react";
 
 const clerkPubKey = publishableKeyFromHost(
@@ -113,7 +113,7 @@ function ClerkQueryClientCacheInvalidator() {
 function HomeRedirect() {
   const { user: clerkUser } = useUser();
   const { data: dbUser, isLoading } = useGetMe({ 
-    query: { enabled: !!clerkUser?.id, retry: false } 
+    query: { enabled: !!clerkUser?.id, retry: false, queryKey: getGetMeQueryKey() } 
   });
 
   return (
