@@ -85,6 +85,18 @@ paths:
           in: query
           schema:
             type: string
+        - name: county
+          in: query
+          schema:
+            type: string
+        - name: town
+          in: query
+          schema:
+            type: string
+        - name: estate
+          in: query
+          schema:
+            type: string
         - name: minRent
           in: query
           schema:
@@ -556,7 +568,7 @@ components:
 
     House:
       type: object
-      required: [id, landlordId, title, rentPrice, city, address, latitude, longitude, status]
+      required: [id, landlordId, title, rentPrice, address, latitude, longitude, status]
       properties:
         id:
           type: integer
@@ -576,6 +588,12 @@ components:
           type: integer
         bathrooms:
           type: integer
+        county:
+          type: string
+        town:
+          type: string
+        estate:
+          type: string
         city:
           type: string
         address:
@@ -604,7 +622,7 @@ components:
 
     HouseInput:
       type: object
-      required: [title, rentPrice, city, address, latitude, longitude]
+      required: [title, rentPrice, county, address, latitude, longitude]
       properties:
         title:
           type: string
@@ -616,6 +634,12 @@ components:
           type: integer
         bathrooms:
           type: integer
+        county:
+          type: string
+        town:
+          type: string
+        estate:
+          type: string
         city:
           type: string
         address:
@@ -646,6 +670,12 @@ components:
           type: integer
         bathrooms:
           type: integer
+        county:
+          type: string
+        town:
+          type: string
+        estate:
+          type: string
         city:
           type: string
         address:

@@ -12,6 +12,9 @@ export interface HouseUpdate {
   rentPrice?: number;
   bedrooms?: number;
   bathrooms?: number;
+  county?: string;
+  town?: string;
+  estate?: string;
   city?: string;
   address?: string;
   latitude?: number;

@@ -10,6 +10,9 @@ import type { ListHousesStatus } from './listHousesStatus';
 export type ListHousesParams = {
 status?: ListHousesStatus;
 city?: string;
+county?: string;
+town?: string;
+estate?: string;
 minRent?: number;
 maxRent?: number;
 bedrooms?: number;

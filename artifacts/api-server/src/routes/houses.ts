@@ -1,18 +1,24 @@
 import { Router } from "express";
 import { db, housesTable, usersTable, favoritesTable } from "@workspace/db";
-import { eq, and, gte, lte, sql } from "drizzle-orm";
+import { eq, and, gte, lte, ilike } from "drizzle-orm";
 import { requireAuth } from "./users";
 
 const router = Router();
 
-const KENYA_CITIES = ["Nairobi", "Mombasa", "Kisumu", "Nakuru", "Eldoret"];
+// Kenya bounding box — rough check to keep listings in Kenya
+const KENYA_BOUNDS = { minLat: -4.9, maxLat: 5.0, minLng: 33.9, maxLng: 41.9 };
+
+function isInKenya(lat: number, lng: number): boolean {
+  return lat >= KENYA_BOUNDS.minLat && lat <= KENYA_BOUNDS.maxLat &&
+    lng >= KENYA_BOUNDS.minLng && lng <= KENYA_BOUNDS.maxLng;
+}
 
 // GET /api/houses
 router.get("/houses", async (req: any, res: any) => {
   try {
-    const { status, city, minRent, maxRent, bedrooms } = req.query;
+    const { status, city, county, town, estate, minRent, maxRent, bedrooms } = req.query;
 
-    let query = db.select({
+    const query = db.select({
       id: housesTable.id,
       landlordId: housesTable.landlordId,
       landlordName: usersTable.name,
@@ -22,6 +28,9 @@ router.get("/houses", async (req: any, res: any) => {
       rentPrice: housesTable.rentPrice,
       bedrooms: housesTable.bedrooms,
       bathrooms: housesTable.bathrooms,
+      county: housesTable.county,
+      town: housesTable.town,
+      estate: housesTable.estate,
       city: housesTable.city,
       address: housesTable.address,
       latitude: housesTable.latitude,
@@ -36,7 +45,10 @@ router.get("/houses", async (req: any, res: any) => {
 
     const conditions: any[] = [];
     if (status) conditions.push(eq(housesTable.status, status as string));
-    if (city) conditions.push(eq(housesTable.city, city as string));
+    if (county) conditions.push(ilike(housesTable.county, county as string));
+    if (town) conditions.push(ilike(housesTable.town, town as string));
+    if (estate) conditions.push(ilike(housesTable.estate, estate as string));
+    if (city) conditions.push(ilike(housesTable.city, city as string));
     if (minRent) conditions.push(gte(housesTable.rentPrice, Number(minRent)));
     if (maxRent) conditions.push(lte(housesTable.rentPrice, Number(maxRent)));
     if (bedrooms) conditions.push(eq(housesTable.bedrooms, Number(bedrooms)));
@@ -45,7 +57,6 @@ router.get("/houses", async (req: any, res: any) => {
       ? await query.where(and(...conditions))
       : await query;
 
-    // Get auth if available for isFavorited
     const auth = req.auth?.();
     if (auth?.userId) {
       const dbUser = await db.select().from(usersTable).where(eq(usersTable.clerkId, auth.userId)).limit(1);
@@ -67,33 +78,61 @@ router.get("/houses", async (req: any, res: any) => {
 router.post("/houses", requireAuth, async (req: any, res: any) => {
   try {
     const user = await db.select().from(usersTable).where(eq(usersTable.clerkId, req.clerkUserId)).limit(1);
-    if (!user[0] || user[0].role !== "landlord") {
+    if (!user[0]) return res.status(401).json({ error: "Unauthorized" });
+    if (user[0].role !== "landlord") {
       return res.status(403).json({ error: "Only landlords can create listings" });
     }
 
-    const { title, description, rentPrice, bedrooms, bathrooms, city, address, latitude, longitude, images, amenities } = req.body;
+    const { title, description, rentPrice, bedrooms, bathrooms, county, town, estate, city, address, latitude, longitude, images, amenities } = req.body;
 
-    if (!KENYA_CITIES.some(c => c.toLowerCase() === city?.toLowerCase())) {
-      return res.status(400).json({ error: "City must be one of: " + KENYA_CITIES.join(", ") });
+    if (!title || title.trim().length < 3) {
+      return res.status(400).json({ error: "Title must be at least 3 characters" });
     }
+    if (!rentPrice || Number(rentPrice) <= 0) {
+      return res.status(400).json({ error: "Rent price must be a positive number" });
+    }
+    if (!address || address.trim().length < 3) {
+      return res.status(400).json({ error: "Address is required" });
+    }
+
+    const lat = Number(latitude);
+    const lng = Number(longitude);
+
+    if (isNaN(lat) || isNaN(lng)) {
+      return res.status(400).json({ error: "Valid latitude and longitude are required" });
+    }
+    if (!isInKenya(lat, lng)) {
+      return res.status(400).json({ error: "Property location must be within Kenya" });
+    }
+
+    const resolvedCounty = county || city || "";
+    const resolvedCity = city || county || "";
 
     const house = await db.insert(housesTable).values({
       landlordId: user[0].id,
-      title,
-      description,
+      title: title.trim(),
+      description: description?.trim() || null,
       rentPrice: Number(rentPrice),
       bedrooms: Number(bedrooms) || 1,
       bathrooms: Number(bathrooms) || 1,
-      city,
-      address,
-      latitude: Number(latitude),
-      longitude: Number(longitude),
-      images: images || [],
-      amenities: amenities || [],
+      county: resolvedCounty,
+      town: town || "",
+      estate: estate || "",
+      city: resolvedCity,
+      address: address.trim(),
+      latitude: lat,
+      longitude: lng,
+      images: Array.isArray(images) ? images : [],
+      amenities: Array.isArray(amenities) ? amenities : [],
       status: "vacant",
     }).returning();
 
-    return res.status(201).json({ ...house[0], landlordName: user[0].name, landlordPhone: user[0].phone, isFavorited: null });
+    return res.status(201).json({
+      ...house[0],
+      landlordName: user[0].name,
+      landlordPhone: user[0].phone,
+      isFavorited: null,
+    });
   } catch (err) {
     req.log.error(err);
     return res.status(500).json({ error: "Internal server error" });
@@ -118,6 +157,8 @@ router.get("/houses/my", requireAuth, async (req: any, res: any) => {
 router.get("/houses/:id", async (req: any, res: any) => {
   try {
     const id = Number(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ error: "Invalid house ID" });
+
     const houses = await db.select({
       id: housesTable.id,
       landlordId: housesTable.landlordId,
@@ -128,6 +169,9 @@ router.get("/houses/:id", async (req: any, res: any) => {
       rentPrice: housesTable.rentPrice,
       bedrooms: housesTable.bedrooms,
       bathrooms: housesTable.bathrooms,
+      county: housesTable.county,
+      town: housesTable.town,
+      estate: housesTable.estate,
       city: housesTable.city,
       address: housesTable.address,
       latitude: housesTable.latitude,
@@ -143,7 +187,21 @@ router.get("/houses/:id", async (req: any, res: any) => {
       .limit(1);
 
     if (!houses[0]) return res.status(404).json({ error: "House not found" });
-    return res.json({ ...houses[0], isFavorited: null });
+
+    // Check if favorited
+    const auth = req.auth?.();
+    let isFavorited: boolean | null = null;
+    if (auth?.userId) {
+      const dbUser = await db.select().from(usersTable).where(eq(usersTable.clerkId, auth.userId)).limit(1);
+      if (dbUser[0]) {
+        const fav = await db.select().from(favoritesTable).where(
+          and(eq(favoritesTable.tenantId, dbUser[0].id), eq(favoritesTable.houseId, id))
+        ).limit(1);
+        isFavorited = fav.length > 0;
+      }
+    }
+
+    return res.json({ ...houses[0], isFavorited });
   } catch (err) {
     req.log.error(err);
     return res.status(500).json({ error: "Internal server error" });
@@ -154,22 +212,39 @@ router.get("/houses/:id", async (req: any, res: any) => {
 router.put("/houses/:id", requireAuth, async (req: any, res: any) => {
   try {
     const id = Number(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ error: "Invalid house ID" });
+
     const user = await db.select().from(usersTable).where(eq(usersTable.clerkId, req.clerkUserId)).limit(1);
     if (!user[0]) return res.status(401).json({ error: "Unauthorized" });
 
-    const house = await db.select().from(housesTable).where(and(eq(housesTable.id, id), eq(housesTable.landlordId, user[0].id))).limit(1);
+    const house = await db.select().from(housesTable).where(
+      and(eq(housesTable.id, id), eq(housesTable.landlordId, user[0].id))
+    ).limit(1);
     if (!house[0]) return res.status(404).json({ error: "House not found or unauthorized" });
 
-    const { title, description, rentPrice, bedrooms, bathrooms, city, address, latitude, longitude, images, amenities } = req.body;
+    const { title, description, rentPrice, bedrooms, bathrooms, county, town, estate, city, address, latitude, longitude, images, amenities } = req.body;
+
+    const lat = latitude !== undefined ? Number(latitude) : undefined;
+    const lng = longitude !== undefined ? Number(longitude) : undefined;
+    if (lat !== undefined && lng !== undefined && !isInKenya(lat, lng)) {
+      return res.status(400).json({ error: "Property location must be within Kenya" });
+    }
+
     const updated = await db.update(housesTable).set({
-      title, description,
+      title,
+      description,
       rentPrice: rentPrice !== undefined ? Number(rentPrice) : undefined,
       bedrooms: bedrooms !== undefined ? Number(bedrooms) : undefined,
       bathrooms: bathrooms !== undefined ? Number(bathrooms) : undefined,
-      city, address,
-      latitude: latitude !== undefined ? Number(latitude) : undefined,
-      longitude: longitude !== undefined ? Number(longitude) : undefined,
-      images, amenities,
+      county: county || undefined,
+      town: town !== undefined ? town : undefined,
+      estate: estate !== undefined ? estate : undefined,
+      city: city || county || undefined,
+      address,
+      latitude: lat,
+      longitude: lng,
+      images,
+      amenities,
       updatedAt: new Date(),
     }).where(eq(housesTable.id, id)).returning();
 
@@ -184,10 +259,14 @@ router.put("/houses/:id", requireAuth, async (req: any, res: any) => {
 router.delete("/houses/:id", requireAuth, async (req: any, res: any) => {
   try {
     const id = Number(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ error: "Invalid house ID" });
+
     const user = await db.select().from(usersTable).where(eq(usersTable.clerkId, req.clerkUserId)).limit(1);
     if (!user[0]) return res.status(401).json({ error: "Unauthorized" });
 
-    const house = await db.select().from(housesTable).where(and(eq(housesTable.id, id), eq(housesTable.landlordId, user[0].id))).limit(1);
+    const house = await db.select().from(housesTable).where(
+      and(eq(housesTable.id, id), eq(housesTable.landlordId, user[0].id))
+    ).limit(1);
     if (!house[0]) return res.status(404).json({ error: "House not found or unauthorized" });
 
     await db.delete(housesTable).where(eq(housesTable.id, id));
@@ -202,6 +281,8 @@ router.delete("/houses/:id", requireAuth, async (req: any, res: any) => {
 router.patch("/houses/:id/status", requireAuth, async (req: any, res: any) => {
   try {
     const id = Number(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ error: "Invalid house ID" });
+
     const user = await db.select().from(usersTable).where(eq(usersTable.clerkId, req.clerkUserId)).limit(1);
     if (!user[0]) return res.status(401).json({ error: "Unauthorized" });
 
@@ -210,7 +291,9 @@ router.patch("/houses/:id/status", requireAuth, async (req: any, res: any) => {
       return res.status(400).json({ error: "Status must be vacant or occupied" });
     }
 
-    const house = await db.select().from(housesTable).where(and(eq(housesTable.id, id), eq(housesTable.landlordId, user[0].id))).limit(1);
+    const house = await db.select().from(housesTable).where(
+      and(eq(housesTable.id, id), eq(housesTable.landlordId, user[0].id))
+    ).limit(1);
     if (!house[0]) return res.status(404).json({ error: "House not found or unauthorized" });
 
     const updated = await db.update(housesTable).set({ status, updatedAt: new Date() }).where(eq(housesTable.id, id)).returning();

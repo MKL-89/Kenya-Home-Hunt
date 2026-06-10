@@ -1,0 +1,2 @@
+- [City validation bug fix](city-validation-fix.md) — the original hardcoded 5-city allowlist blocked all listings outside Nairobi/Mombasa/etc; replaced with Kenya bounding-box check.
+- [FormLabel outside FormField crashes](formlabel-crash.md) — shadcn FormLabel calls useFormField() and will throw if not inside a FormField; use plain <label> for standalone labels.

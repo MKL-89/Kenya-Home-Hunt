@@ -13,18 +13,28 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { PropertyMap } from "@/components/Map";
-import { Loader2, Upload, X, ImageIcon } from "lucide-react";
+import { Loader2, Upload, X, ImageIcon, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import { queryClient } from "@/lib/queryClient";
+import {
+  KENYA_COUNTIES,
+  getCountyNames,
+  getTownsForCounty,
+  getEstatesForTown,
+  getTownCenter,
+  getCountyCenter,
+} from "@/lib/kenya-locations";
 
 const formSchema = z.object({
-  title: z.string().min(5, "Title must be at least 5 characters"),
+  title: z.string().min(3, "Title must be at least 3 characters"),
   description: z.string().optional(),
   rentPrice: z.coerce.number().min(1, "Rent price is required"),
-  bedrooms: z.coerce.number().optional(),
-  bathrooms: z.coerce.number().optional(),
-  city: z.string().min(1, "City is required"),
-  address: z.string().min(5, "Address is required"),
+  bedrooms: z.coerce.number().min(0).default(1),
+  bathrooms: z.coerce.number().min(0).default(1),
+  county: z.string().min(1, "County is required"),
+  town: z.string().min(1, "Town is required"),
+  estate: z.string().optional().default(""),
+  address: z.string().min(3, "Address is required"),
   latitude: z.number().min(-90).max(90),
   longitude: z.number().min(-180).max(180),
   images: z.array(z.string()).default([]),
@@ -33,10 +43,10 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
-const CITIES = ["Nairobi", "Mombasa", "Kisumu", "Nakuru", "Eldoret"];
 const COMMON_AMENITIES = [
-  "Parking", "Security", "Borehole Water", "Wifi", 
-  "Gym", "Swimming Pool", "Balcony", "Backup Generator"
+  "Parking", "Security", "Borehole Water", "Wifi",
+  "Gym", "Swimming Pool", "Balcony", "Backup Generator",
+  "CCTV", "Gated Community", "Garden", "Rooftop Access",
 ];
 
 export function HouseForm() {
@@ -45,6 +55,9 @@ export function HouseForm() {
   const houseId = parseInt(id || "0");
   const [, setLocation] = useLocation();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [selectedCounty, setSelectedCounty] = useState("");
+  const [selectedTown, setSelectedTown] = useState("");
+  const [mapCenter, setMapCenter] = useState<[number, number]>([-1.286389, 36.817223]);
 
   const { data: existingHouse, isLoading: isLoadingHouse } = useGetHouse(houseId, {
     query: { enabled: isEditing, queryKey: getGetHouseQueryKey(houseId) }
@@ -63,11 +76,13 @@ export function HouseForm() {
       title: "",
       description: "",
       rentPrice: 0,
-      bedrooms: 0,
-      bathrooms: 0,
-      city: "",
+      bedrooms: 1,
+      bathrooms: 1,
+      county: "",
+      town: "",
+      estate: "",
       address: "",
-      latitude: -1.286389, // Default to Nairobi
+      latitude: -1.286389,
       longitude: 36.817223,
       images: [],
       amenities: [],
@@ -76,35 +91,49 @@ export function HouseForm() {
 
   useEffect(() => {
     if (isEditing && existingHouse) {
+      const county = existingHouse.county || existingHouse.city || "";
+      const town = existingHouse.town || "";
+      setSelectedCounty(county);
+      setSelectedTown(town);
       form.reset({
         title: existingHouse.title,
         description: existingHouse.description || "",
         rentPrice: existingHouse.rentPrice,
-        bedrooms: existingHouse.bedrooms || 0,
-        bathrooms: existingHouse.bathrooms || 0,
-        city: existingHouse.city,
+        bedrooms: existingHouse.bedrooms || 1,
+        bathrooms: existingHouse.bathrooms || 1,
+        county,
+        town,
+        estate: existingHouse.estate || "",
         address: existingHouse.address,
         latitude: existingHouse.latitude,
         longitude: existingHouse.longitude,
         images: existingHouse.images || [],
         amenities: existingHouse.amenities || [],
       });
+      setMapCenter([existingHouse.latitude, existingHouse.longitude]);
     }
   }, [existingHouse, isEditing, form]);
 
   const onSubmit = async (data: FormValues) => {
     try {
       if (isEditing) {
-        await updateHouse.mutateAsync({ id: houseId, data });
-        toast.success("Listing updated successfully");
+        await updateHouse.mutateAsync({ id: houseId, data: {
+          ...data,
+          city: data.county,
+        } });
+        toast.success("Listing updated successfully!");
       } else {
-        await createHouse.mutateAsync({ data });
-        toast.success("Listing created successfully");
+        await createHouse.mutateAsync({ data: {
+          ...data,
+          city: data.county,
+        } });
+        toast.success("Listing created successfully!");
       }
       queryClient.invalidateQueries();
       setLocation("/landlord-dashboard");
-    } catch (error) {
-      toast.error("An error occurred");
+    } catch (error: any) {
+      const message = error?.response?.data?.error || error?.message || "Failed to save listing. Please try again.";
+      toast.error(message);
     }
   };
 
@@ -128,6 +157,10 @@ export function HouseForm() {
     form.setValue("images", currentImages.filter((_, i) => i !== index));
   };
 
+  const countyNames = getCountyNames();
+  const towns = selectedCounty ? getTownsForCounty(selectedCounty) : [];
+  const estates = selectedCounty && selectedTown ? getEstatesForTown(selectedCounty, selectedTown) : [];
+
   if (isEditing && isLoadingHouse) {
     return (
       <MainLayout>
@@ -141,78 +174,71 @@ export function HouseForm() {
   return (
     <MainLayout>
       <div className="container py-8 max-w-4xl">
-        <h1 className="text-3xl font-bold tracking-tight mb-8">
-          {isEditing ? "Edit Listing" : "Add New Listing"}
-        </h1>
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold tracking-tight">
+            {isEditing ? "Edit Listing" : "Add New Listing"}
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            {isEditing ? "Update your property details below." : "Fill in the details to list your property across Kenya."}
+          </p>
+        </div>
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
             <div className="grid md:grid-cols-2 gap-8">
               <div className="space-y-6">
+                {/* Title */}
                 <FormField
                   control={form.control}
                   name="title"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Property Title</FormLabel>
-                      <FormControl><Input placeholder="e.g. Modern 2BR Apartment in Kilimani" {...field} /></FormControl>
+                      <FormLabel>Property Title *</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g. Modern 2BR Apartment in Kilimani" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
 
+                {/* Description */}
                 <FormField
                   control={form.control}
                   name="description"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Description</FormLabel>
-                      <FormControl><Textarea className="min-h-[120px]" {...field} /></FormControl>
+                      <FormControl>
+                        <Textarea className="min-h-[100px] resize-none" placeholder="Describe the property..." {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
 
-                <div className="grid grid-cols-2 gap-4">
+                {/* Rent + Bedrooms/Bathrooms */}
+                <div className="grid grid-cols-3 gap-4">
                   <FormField
                     control={form.control}
                     name="rentPrice"
                     render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Rent Price (KES / month)</FormLabel>
-                        <FormControl><Input type="number" {...field} /></FormControl>
+                      <FormItem className="col-span-3">
+                        <FormLabel>Rent (KES/month) *</FormLabel>
+                        <FormControl>
+                          <Input type="number" min={1} placeholder="e.g. 25000" {...field} />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-                  <FormField
-                    control={form.control}
-                    name="city"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>City</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
-                          <FormControl>
-                            <SelectTrigger><SelectValue placeholder="Select city" /></SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {CITIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
                     name="bedrooms"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Bedrooms</FormLabel>
-                        <FormControl><Input type="number" {...field} /></FormControl>
+                        <FormControl><Input type="number" min={0} {...field} /></FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -223,76 +249,194 @@ export function HouseForm() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Bathrooms</FormLabel>
-                        <FormControl><Input type="number" {...field} /></FormControl>
+                        <FormControl><Input type="number" min={0} {...field} /></FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
                 </div>
 
+                {/* Location hierarchy: County → Town → Estate */}
+                <div className="space-y-4 p-4 border rounded-lg bg-muted/20">
+                  <div className="font-medium text-sm flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-primary" /> Location (Kenya)
+                  </div>
+
+                  <FormField
+                    control={form.control}
+                    name="county"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>County *</FormLabel>
+                        <Select
+                          value={field.value}
+                          onValueChange={(val) => {
+                            field.onChange(val);
+                            setSelectedCounty(val);
+                            setSelectedTown("");
+                            form.setValue("town", "");
+                            form.setValue("estate", "");
+                            const center = getCountyCenter(val);
+                            setMapCenter(center);
+                            form.setValue("latitude", center[0]);
+                            form.setValue("longitude", center[1]);
+                          }}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select county" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent className="max-h-60">
+                            {countyNames.map(c => (
+                              <SelectItem key={c} value={c}>{c}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="town"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Town *</FormLabel>
+                        <Select
+                          value={field.value}
+                          onValueChange={(val) => {
+                            field.onChange(val);
+                            setSelectedTown(val);
+                            form.setValue("estate", "");
+                            const center = getTownCenter(selectedCounty, val);
+                            setMapCenter(center);
+                            form.setValue("latitude", center[0]);
+                            form.setValue("longitude", center[1]);
+                          }}
+                          disabled={!selectedCounty}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder={selectedCounty ? "Select town" : "Select county first"} />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent className="max-h-60">
+                            {towns.map(t => (
+                              <SelectItem key={t.name} value={t.name}>{t.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="estate"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Estate / Area</FormLabel>
+                        {estates.length > 0 ? (
+                          <Select
+                            value={field.value}
+                            onValueChange={field.onChange}
+                            disabled={!selectedTown}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select estate (optional)" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent className="max-h-60">
+                              <SelectItem value="">None / Other</SelectItem>
+                              {estates.map(e => (
+                                <SelectItem key={e} value={e}>{e}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <FormControl>
+                            <Input placeholder="Estate or area name (optional)" {...field} />
+                          </FormControl>
+                        )}
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                {/* Address */}
                 <FormField
                   control={form.control}
                   name="address"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Address</FormLabel>
-                      <FormControl><Input placeholder="e.g. Argwings Kodhek Rd" {...field} /></FormControl>
+                      <FormLabel>Street Address *</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g. Argwings Kodhek Rd, Apt 4B" {...field} />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
                 />
 
+                {/* Amenities */}
                 <div className="space-y-3">
-                  <FormLabel>Amenities</FormLabel>
+                  <label className="text-sm font-medium leading-none">Amenities</label>
                   <div className="grid grid-cols-2 gap-2 p-4 border rounded-md bg-muted/20">
                     {COMMON_AMENITIES.map((amenity) => (
                       <FormField
                         key={amenity}
                         control={form.control}
                         name="amenities"
-                        render={({ field }) => {
-                          return (
-                            <FormItem key={amenity} className="flex flex-row items-start space-x-3 space-y-0">
-                              <FormControl>
-                                <Checkbox
-                                  checked={field.value?.includes(amenity)}
-                                  onCheckedChange={(checked) => {
-                                    return checked
-                                      ? field.onChange([...field.value, amenity])
-                                      : field.onChange(field.value?.filter((value) => value !== amenity))
-                                  }}
-                                />
-                              </FormControl>
-                              <FormLabel className="font-normal">{amenity}</FormLabel>
-                            </FormItem>
-                          )
-                        }}
+                        render={({ field }) => (
+                          <FormItem key={amenity} className="flex flex-row items-start space-x-3 space-y-0">
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value?.includes(amenity)}
+                                onCheckedChange={(checked) => {
+                                  return checked
+                                    ? field.onChange([...field.value, amenity])
+                                    : field.onChange(field.value?.filter((v) => v !== amenity));
+                                }}
+                              />
+                            </FormControl>
+                            <FormLabel className="font-normal text-sm">{amenity}</FormLabel>
+                          </FormItem>
+                        )}
                       />
                     ))}
                   </div>
                 </div>
               </div>
 
+              {/* Right column: Map + Photos */}
               <div className="space-y-6">
                 <div className="space-y-3">
-                  <FormLabel>Location on Map (Click to set)</FormLabel>
-                  <div className="h-[300px] border rounded-md overflow-hidden relative z-0">
-                    <PropertyMap 
-                      center={[form.getValues("latitude"), form.getValues("longitude")]}
-                      zoom={isEditing ? 14 : 6}
+                  <label className="text-sm font-medium leading-none">Pin Location on Map</label>
+                  <p className="text-xs text-muted-foreground">Click on the map to set the exact property location.</p>
+                  <div className="h-[320px] border rounded-md overflow-hidden relative z-0">
+                    <PropertyMap
+                      center={mapCenter}
+                      zoom={selectedTown ? 14 : selectedCounty ? 10 : 6}
                       onLocationSelect={(lat, lng) => {
                         form.setValue("latitude", lat);
                         form.setValue("longitude", lng);
+                        setMapCenter([lat, lng]);
                       }}
                     />
                   </div>
-                  <div className="text-xs text-muted-foreground">
-                    Lat: {form.watch("latitude").toFixed(6)}, Lng: {form.watch("longitude").toFixed(6)}
+                  <div className="text-xs text-muted-foreground font-mono bg-muted/30 rounded px-2 py-1">
+                    📍 Lat: {form.watch("latitude").toFixed(6)}, Lng: {form.watch("longitude").toFixed(6)}
                   </div>
                 </div>
 
+                {/* Photos */}
                 <div className="space-y-3">
-                  <FormLabel>Photos</FormLabel>
+                  <label className="text-sm font-medium leading-none">Property Photos</label>
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -352,8 +496,14 @@ export function HouseForm() {
               <Button type="button" variant="outline" onClick={() => setLocation("/landlord-dashboard")}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={createHouse.isPending || updateHouse.isPending}>
-                {(createHouse.isPending || updateHouse.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              <Button
+                type="submit"
+                disabled={createHouse.isPending || updateHouse.isPending}
+                className="min-w-[140px]"
+              >
+                {(createHouse.isPending || updateHouse.isPending) && (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                )}
                 {isEditing ? "Save Changes" : "Create Listing"}
               </Button>
             </div>
