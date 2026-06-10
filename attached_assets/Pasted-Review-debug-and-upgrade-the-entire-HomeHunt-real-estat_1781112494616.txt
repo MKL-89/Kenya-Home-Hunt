@@ -1,0 +1,121 @@
+Review, debug, and upgrade the entire HomeHunt real estate platform.
+
+PROJECT GOAL:
+Build a complete, production-ready full-stack real estate platform for Kenya where tenants can find rental houses and landlords can manage property listings.
+
+CRITICAL FIXES FIRST:
+
+1. Fix the landlord dashboard issue where landlords cannot add new property listings.
+2. Review and debug the entire property creation workflow including:
+   - Frontend forms
+   - API endpoints
+   - Authentication
+   - Role permissions
+   - Validation
+   - Image uploads
+   - Database inserts
+3. Ensure landlords can successfully:
+   - Add properties
+   - Edit properties
+   - Delete properties
+   - Mark properties as Vacant or Occupied
+4. Display clear success and error messages.
+
+SUPABASE INTEGRATION:
+
+5. Connect the project fully to Supabase.
+6. Configure all required environment variables.
+7. Create and connect database tables for:
+   - users
+   - properties
+   - favorites
+8. Ensure all CRUD operations work correctly.
+9. Replace any mock or local storage data with Supabase data.
+10. Verify authentication and database connectivity.
+
+KENYA-WIDE LOCATION SYSTEM:
+
+11. Remove any restriction to a few cities.
+12. Support all 47 counties in Kenya.
+13. Create the location hierarchy:
+    County → Town → Estate/Area → Property
+14. Update database schemas and models to support:
+    - county
+    - town
+    - estate_area
+    - latitude
+    - longitude
+15. Update all forms, filters, APIs, and dashboards to use the new location hierarchy.
+16. Restrict listings to Kenya only.
+
+MAP SYSTEM:
+
+17. Keep the map centered on Kenya:
+    Latitude: -1.286389
+    Longitude: 36.817223
+18. Default zoom level: 7.
+19. Only display properties located in Kenya.
+20. Prepare the map architecture for easy Google Maps integration later.
+
+TENANT FEATURES:
+
+21. User registration and login.
+22. Tenant dashboard.
+23. Browse available properties.
+24. View property details.
+25. Save favorite properties.
+26. View favorites list.
+27. Search by county, town, estate, rent, bedrooms, and property status.
+28. Contact landlords directly.
+
+LANDLORD FEATURES:
+
+29. Landlord registration and login.
+30. Landlord dashboard.
+31. Add property listings.
+32. Edit listings.
+33. Delete listings.
+34. Upload multiple property images.
+35. View all managed properties.
+36. Track Vacant and Occupied properties.
+
+DATABASE STRUCTURE:
+
+37. Create scalable Supabase/PostgreSQL tables for:
+    - users
+    - properties
+    - favorites
+38. Add proper foreign key relationships.
+39. Add indexes for performance.
+
+USER INTERFACE:
+
+40. Build a modern, clean, responsive UI.
+41. Ensure mobile, tablet, and desktop compatibility.
+42. Improve navigation and dashboard usability.
+43. Create attractive property cards and detail pages.
+
+SECURITY:
+
+44. Implement secure authentication.
+45. Use role-based access control.
+46. Protect landlord-only routes.
+47. Validate all user input.
+48. Add proper API error handling.
+
+SCALABILITY:
+
+49. Organize code into reusable components.
+50. Use clean architecture and best practices.
+51. Prepare the project for future deployment and growth.
+52. Prepare easy future integration with Google Maps, notifications, payments, and property verification.
+
+FINAL TASK:
+
+After completing all changes:
+
+- Generate all required code updates.
+- Update affected files automatically.
+- Fix any build errors.
+- Verify the application runs successfully.
+- Provide a summary of all changes made and any remaining manual steps required.
