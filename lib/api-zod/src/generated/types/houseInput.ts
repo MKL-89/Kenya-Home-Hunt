@@ -12,7 +12,10 @@ export interface HouseInput {
   rentPrice: number;
   bedrooms?: number;
   bathrooms?: number;
-  city: string;
+  county: string;
+  town?: string;
+  estate?: string;
+  city?: string;
   address: string;
   latitude: number;
   longitude: number;

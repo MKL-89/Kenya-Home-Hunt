@@ -65,7 +65,10 @@ export interface House {
   rentPrice: number;
   bedrooms?: number;
   bathrooms?: number;
-  city: string;
+  county?: string;
+  town?: string;
+  estate?: string;
+  city?: string;
   address: string;
   latitude: number;
   longitude: number;
@@ -84,7 +87,10 @@ export interface HouseInput {
   rentPrice: number;
   bedrooms?: number;
   bathrooms?: number;
-  city: string;
+  county: string;
+  town?: string;
+  estate?: string;
+  city?: string;
   address: string;
   latitude: number;
   longitude: number;
@@ -98,6 +104,9 @@ export interface HouseUpdate {
   rentPrice?: number;
   bedrooms?: number;
   bathrooms?: number;
+  county?: string;
+  town?: string;
+  estate?: string;
   city?: string;
   address?: string;
   latitude?: number;
@@ -220,6 +229,9 @@ export interface ErrorEnvelope {
 export type ListHousesParams = {
 status?: ListHousesStatus;
 city?: string;
+county?: string;
+town?: string;
+estate?: string;
 minRent?: number;
 maxRent?: number;
 bedrooms?: number;
