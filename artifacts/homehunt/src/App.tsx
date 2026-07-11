@@ -90,6 +90,7 @@ const clerkAppearance = {
   },
 };
 
+// Clears React Query cache whenever the Clerk userId changes (sign-in / sign-out)
 function ClerkQueryClientCacheInvalidator() {
   const { addListener } = useClerk();
   const queryClient = useQueryClient();
@@ -98,10 +99,7 @@ function ClerkQueryClientCacheInvalidator() {
   useEffect(() => {
     const unsubscribe = addListener(({ user }) => {
       const userId = user?.id ?? null;
-      if (
-        prevUserIdRef.current !== undefined &&
-        prevUserIdRef.current !== userId
-      ) {
+      if (prevUserIdRef.current !== undefined && prevUserIdRef.current !== userId) {
         queryClient.clear();
       }
       prevUserIdRef.current = userId;
@@ -112,32 +110,75 @@ function ClerkQueryClientCacheInvalidator() {
   return null;
 }
 
+// Spinner shown while the app determines where to send the user
+function FullPageSpinner() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background">
+      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+    </div>
+  );
+}
+
+/**
+ * Route shown at "/" — decides whether to show the landing page,
+ * the onboarding flow, or redirect to the right dashboard.
+ */
 function HomeRedirect() {
-  const { user: clerkUser } = useUser();
-  const { data: dbUser, isLoading } = useGetMe({ 
-    query: { enabled: !!clerkUser?.id, retry: false, queryKey: getGetMeQueryKey() } 
+  const { user: clerkUser, isLoaded: clerkLoaded } = useUser();
+  const { data: dbUser, isLoading: dbLoading, isError } = useGetMe({
+    query: {
+      enabled: clerkLoaded && !!clerkUser?.id,
+      // Don't permanently cache errors — retry once on mount so stale 401s
+      // from a previous session don't block the signed-in user.
+      retry: 1,
+      retryDelay: 0,
+      staleTime: 0,
+      queryKey: getGetMeQueryKey(),
+    },
   });
 
-  return (
-    <>
-      <Show when="signed-in">
-        {isLoading ? (
-          <div className="min-h-screen flex items-center justify-center">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          </div>
-        ) : !dbUser ? (
-          <Redirect to="/onboarding" />
-        ) : dbUser.role === "tenant" ? (
-          <Redirect to="/tenant-dashboard" />
-        ) : (
-          <Redirect to="/landlord-dashboard" />
-        )}
-      </Show>
-      <Show when="signed-out">
-        <Home />
-      </Show>
-    </>
-  );
+  // Clerk is still initialising
+  if (!clerkLoaded) return <FullPageSpinner />;
+
+  // Not signed in → show landing page
+  if (!clerkUser) return <Home />;
+
+  // Signed in, waiting for the DB user lookup
+  if (dbLoading) return <FullPageSpinner />;
+
+  // Signed in but no DB user (or error) → onboarding
+  if (!dbUser || isError) return <Redirect to="/onboarding" />;
+
+  // Signed in + DB user → send to the right dashboard
+  return <Redirect to={dbUser.role === "tenant" ? "/tenant-dashboard" : "/landlord-dashboard"} />;
+}
+
+/**
+ * Wraps any route that requires the user to be signed in and
+ * to have completed onboarding.
+ *
+ * - Not signed in  → /sign-in
+ * - Signed in, no DB profile → /onboarding
+ * - Signed in + profile → renders children
+ */
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { user: clerkUser, isLoaded: clerkLoaded } = useUser();
+  const { data: dbUser, isLoading: dbLoading } = useGetMe({
+    query: {
+      enabled: clerkLoaded && !!clerkUser?.id,
+      retry: 1,
+      retryDelay: 0,
+      staleTime: 0,
+      queryKey: getGetMeQueryKey(),
+    },
+  });
+
+  if (!clerkLoaded) return <FullPageSpinner />;
+  if (!clerkUser) return <Redirect to="/sign-in" />;
+  if (dbLoading) return <FullPageSpinner />;
+  if (!dbUser) return <Redirect to="/onboarding" />;
+
+  return <>{children}</>;
 }
 
 function ClerkProviderWithRoutes() {
@@ -150,39 +191,46 @@ function ClerkProviderWithRoutes() {
       appearance={clerkAppearance}
       signInUrl={`${basePath}/sign-in`}
       signUpUrl={`${basePath}/sign-up`}
-      localization={{
-        signIn: {
-          start: {
-            title: "Welcome back",
-            subtitle: "Sign in to access your account",
-          },
-        },
-        signUp: {
-          start: {
-            title: "Create your account",
-            subtitle: "Get started today",
-          },
-        },
-      }}
+      afterSignOutUrl={`${basePath}/`}
       routerPush={(to) => setLocation(stripBase(to))}
       routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
     >
       <QueryClientProvider client={queryClient}>
         <ClerkQueryClientCacheInvalidator />
         <Switch>
+          {/* Public routes */}
           <Route path="/" component={HomeRedirect} />
           <Route path="/sign-in/*?" component={SignInPage} />
           <Route path="/sign-up/*?" component={SignUpPage} />
-          <Route path="/onboarding" component={Onboarding} />
-          <Route path="/tenant-dashboard" component={TenantDashboard} />
-          <Route path="/landlord-dashboard" component={LandlordDashboard} />
           <Route path="/map" component={MapPage} />
           <Route path="/house/:id" component={HouseDetail} />
-          <Route path="/favorites" component={Favorites} />
-          <Route path="/add-house" component={HouseForm} />
-          <Route path="/edit-house/:id" component={HouseForm} />
-          <Route path="/profile" component={Profile} />
-          <Route path="/inquiries" component={InquiriesPage} />
+
+          {/* Onboarding — accessible when signed in but not yet in DB */}
+          <Route path="/onboarding" component={Onboarding} />
+
+          {/* Protected routes — require sign-in + completed onboarding */}
+          <Route path="/tenant-dashboard">
+            <ProtectedRoute><TenantDashboard /></ProtectedRoute>
+          </Route>
+          <Route path="/landlord-dashboard">
+            <ProtectedRoute><LandlordDashboard /></ProtectedRoute>
+          </Route>
+          <Route path="/favorites">
+            <ProtectedRoute><Favorites /></ProtectedRoute>
+          </Route>
+          <Route path="/add-house">
+            <ProtectedRoute><HouseForm /></ProtectedRoute>
+          </Route>
+          <Route path="/edit-house/:id">
+            <ProtectedRoute><HouseForm /></ProtectedRoute>
+          </Route>
+          <Route path="/profile">
+            <ProtectedRoute><Profile /></ProtectedRoute>
+          </Route>
+          <Route path="/inquiries">
+            <ProtectedRoute><InquiriesPage /></ProtectedRoute>
+          </Route>
+
           <Route component={NotFound} />
         </Switch>
       </QueryClientProvider>
