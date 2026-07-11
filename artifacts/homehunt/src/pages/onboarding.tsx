@@ -33,8 +33,10 @@ export function Onboarding() {
       // Invalidate the /users/me cache so Navbar immediately gets the new role
       await queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
       setLocation(role === "tenant" ? "/tenant-dashboard" : "/landlord-dashboard");
-    } catch {
-      toast.error("Failed to save role. Please try again.");
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Failed to save role. Please try again.";
+      toast.error(message);
       setIsSubmitting(false);
     }
   };

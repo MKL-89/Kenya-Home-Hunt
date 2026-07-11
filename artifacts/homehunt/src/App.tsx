@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
-import { ClerkProvider, SignIn, SignUp, Show, useClerk, useUser } from '@clerk/react';
+import { ClerkProvider, SignIn, SignUp, Show, useClerk, useUser, useAuth } from '@clerk/react';
+import { setAuthTokenGetter } from "@workspace/api-client-react";
 import { publishableKeyFromHost } from '@clerk/react/internal';
 import { shadcn } from '@clerk/themes';
 import { Switch, Route, useLocation, Router as WouterRouter, Redirect } from 'wouter';
@@ -89,6 +90,21 @@ const clerkAppearance = {
     main: "",
   },
 };
+
+/**
+ * Registers Clerk's getToken() as the API client's auth token getter.
+ * This ensures every fetch to /api/* includes `Authorization: Bearer <token>`.
+ * Required because Clerk session cookies are scoped to the frontend and do
+ * not automatically travel to the Express server in Replit's multi-port setup.
+ */
+function ClerkAuthTokenBridge() {
+  const { getToken } = useAuth();
+  useEffect(() => {
+    setAuthTokenGetter(() => getToken());
+    return () => setAuthTokenGetter(null);
+  }, [getToken]);
+  return null;
+}
 
 // Clears React Query cache whenever the Clerk userId changes (sign-in / sign-out)
 function ClerkQueryClientCacheInvalidator() {
@@ -196,6 +212,7 @@ function ClerkProviderWithRoutes() {
       routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
     >
       <QueryClientProvider client={queryClient}>
+        <ClerkAuthTokenBridge />
         <ClerkQueryClientCacheInvalidator />
         <Switch>
           {/* Public routes */}
