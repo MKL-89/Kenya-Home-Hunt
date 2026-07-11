@@ -13,11 +13,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { PropertyMap } from "@/components/Map";
-import { Loader2, Upload, X, ImageIcon, MapPin } from "lucide-react";
+import { Loader2, Upload, X, ImageIcon, MapPin, Phone } from "lucide-react";
 import { toast } from "sonner";
 import { queryClient } from "@/lib/queryClient";
 import {
-  KENYA_COUNTIES,
   getCountyNames,
   getTownsForCounty,
   getEstatesForTown,
@@ -25,10 +24,30 @@ import {
   getCountyCenter,
 } from "@/lib/kenya-locations";
 
+const PROPERTY_TYPES = [
+  "Apartment",
+  "Bedsitter",
+  "Single Room",
+  "Studio",
+  "Maisonette",
+  "Bungalow",
+  "Townhouse",
+  "Villa",
+  "Commercial Space",
+];
+
+const COMMON_AMENITIES = [
+  "Parking", "Security", "Borehole Water", "Wifi",
+  "Gym", "Swimming Pool", "Balcony", "Backup Generator",
+  "CCTV", "Gated Community", "Garden", "Rooftop Access",
+];
+
 const formSchema = z.object({
   title: z.string().min(3, "Title must be at least 3 characters"),
   description: z.string().optional(),
   rentPrice: z.coerce.number().min(1, "Rent price is required"),
+  propertyType: z.string().min(1, "Property type is required"),
+  contactPhone: z.string().min(7, "Contact phone is required"),
   bedrooms: z.coerce.number().min(0).default(1),
   bathrooms: z.coerce.number().min(0).default(1),
   county: z.string().min(1, "County is required"),
@@ -42,12 +61,6 @@ const formSchema = z.object({
 });
 
 type FormValues = z.infer<typeof formSchema>;
-
-const COMMON_AMENITIES = [
-  "Parking", "Security", "Borehole Water", "Wifi",
-  "Gym", "Swimming Pool", "Balcony", "Backup Generator",
-  "CCTV", "Gated Community", "Garden", "Rooftop Access",
-];
 
 export function HouseForm() {
   const { id } = useParams<{ id: string }>();
@@ -76,6 +89,8 @@ export function HouseForm() {
       title: "",
       description: "",
       rentPrice: 0,
+      propertyType: "",
+      contactPhone: "",
       bedrooms: 1,
       bathrooms: 1,
       county: "",
@@ -99,6 +114,8 @@ export function HouseForm() {
         title: existingHouse.title,
         description: existingHouse.description || "",
         rentPrice: existingHouse.rentPrice,
+        propertyType: existingHouse.propertyType || "",
+        contactPhone: existingHouse.contactPhone || "",
         bedrooms: existingHouse.bedrooms || 1,
         bathrooms: existingHouse.bathrooms || 1,
         county,
@@ -131,8 +148,9 @@ export function HouseForm() {
       }
       queryClient.invalidateQueries();
       setLocation("/landlord-dashboard");
-    } catch (error: any) {
-      const message = error?.response?.data?.error || error?.message || "Failed to save listing. Please try again.";
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : "Failed to save listing. Please try again.";
       toast.error(message);
     }
   };
@@ -187,6 +205,7 @@ export function HouseForm() {
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
             <div className="grid md:grid-cols-2 gap-8">
               <div className="space-y-6">
+
                 {/* Title */}
                 <FormField
                   control={form.control}
@@ -212,6 +231,30 @@ export function HouseForm() {
                       <FormControl>
                         <Textarea className="min-h-[100px] resize-none" placeholder="Describe the property..." {...field} />
                       </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Property Type */}
+                <FormField
+                  control={form.control}
+                  name="propertyType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Property Type *</FormLabel>
+                      <Select value={field.value} onValueChange={field.onChange}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select property type" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {PROPERTY_TYPES.map(type => (
+                            <SelectItem key={type} value={type}>{type}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -255,6 +298,24 @@ export function HouseForm() {
                     )}
                   />
                 </div>
+
+                {/* Contact Phone */}
+                <FormField
+                  control={form.control}
+                  name="contactPhone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Contact Phone *</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Input className="pl-9" placeholder="+254 712 345 678" {...field} />
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
                 {/* Location hierarchy: County → Town → Estate */}
                 <div className="space-y-4 p-4 border rounded-lg bg-muted/20">

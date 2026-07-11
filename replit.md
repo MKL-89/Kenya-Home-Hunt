@@ -1,6 +1,6 @@
-# [Project name]
+# HomeHunt
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+A Kenya-focused real estate marketplace where landlords list properties and tenants discover, favorite, and inquire about available homes on an interactive map.
 
 ## Run & Operate
 

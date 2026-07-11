@@ -26,6 +26,8 @@ router.get("/houses", async (req: any, res: any) => {
       title: housesTable.title,
       description: housesTable.description,
       rentPrice: housesTable.rentPrice,
+      propertyType: housesTable.propertyType,
+      contactPhone: housesTable.contactPhone,
       bedrooms: housesTable.bedrooms,
       bathrooms: housesTable.bathrooms,
       county: housesTable.county,
@@ -83,7 +85,7 @@ router.post("/houses", requireAuth, async (req: any, res: any) => {
       return res.status(403).json({ error: "Only landlords can create listings" });
     }
 
-    const { title, description, rentPrice, bedrooms, bathrooms, county, town, estate, city, address, latitude, longitude, images, amenities } = req.body;
+    const { title, description, rentPrice, bedrooms, bathrooms, propertyType, contactPhone, county, town, estate, city, address, latitude, longitude, images, amenities } = req.body;
 
     if (!title || title.trim().length < 3) {
       return res.status(400).json({ error: "Title must be at least 3 characters" });
@@ -93,6 +95,12 @@ router.post("/houses", requireAuth, async (req: any, res: any) => {
     }
     if (!address || address.trim().length < 3) {
       return res.status(400).json({ error: "Address is required" });
+    }
+    if (!propertyType || !propertyType.trim()) {
+      return res.status(400).json({ error: "Property type is required" });
+    }
+    if (!contactPhone || !contactPhone.trim()) {
+      return res.status(400).json({ error: "Contact phone is required" });
     }
 
     const lat = Number(latitude);
@@ -115,6 +123,8 @@ router.post("/houses", requireAuth, async (req: any, res: any) => {
       rentPrice: Number(rentPrice),
       bedrooms: Number(bedrooms) || 1,
       bathrooms: Number(bathrooms) || 1,
+      propertyType: propertyType.trim(),
+      contactPhone: contactPhone.trim(),
       county: resolvedCounty,
       town: town || "",
       estate: estate || "",
@@ -167,6 +177,8 @@ router.get("/houses/:id", async (req: any, res: any) => {
       title: housesTable.title,
       description: housesTable.description,
       rentPrice: housesTable.rentPrice,
+      propertyType: housesTable.propertyType,
+      contactPhone: housesTable.contactPhone,
       bedrooms: housesTable.bedrooms,
       bathrooms: housesTable.bathrooms,
       county: housesTable.county,
@@ -222,7 +234,7 @@ router.put("/houses/:id", requireAuth, async (req: any, res: any) => {
     ).limit(1);
     if (!house[0]) return res.status(404).json({ error: "House not found or unauthorized" });
 
-    const { title, description, rentPrice, bedrooms, bathrooms, county, town, estate, city, address, latitude, longitude, images, amenities } = req.body;
+    const { title, description, rentPrice, bedrooms, bathrooms, propertyType, contactPhone, county, town, estate, city, address, latitude, longitude, images, amenities } = req.body;
 
     const lat = latitude !== undefined ? Number(latitude) : undefined;
     const lng = longitude !== undefined ? Number(longitude) : undefined;
@@ -236,6 +248,8 @@ router.put("/houses/:id", requireAuth, async (req: any, res: any) => {
       rentPrice: rentPrice !== undefined ? Number(rentPrice) : undefined,
       bedrooms: bedrooms !== undefined ? Number(bedrooms) : undefined,
       bathrooms: bathrooms !== undefined ? Number(bathrooms) : undefined,
+      propertyType: propertyType !== undefined ? propertyType : undefined,
+      contactPhone: contactPhone !== undefined ? contactPhone : undefined,
       county: county || undefined,
       town: town !== undefined ? town : undefined,
       estate: estate !== undefined ? estate : undefined,

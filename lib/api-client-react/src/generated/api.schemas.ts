@@ -63,6 +63,8 @@ export interface House {
   /** @nullable */
   description?: string | null;
   rentPrice: number;
+  propertyType?: string;
+  contactPhone?: string;
   bedrooms?: number;
   bathrooms?: number;
   county?: string;
@@ -85,6 +87,8 @@ export interface HouseInput {
   title: string;
   description?: string;
   rentPrice: number;
+  propertyType?: string;
+  contactPhone?: string;
   bedrooms?: number;
   bathrooms?: number;
   county: string;
@@ -102,6 +106,8 @@ export interface HouseUpdate {
   title?: string;
   description?: string;
   rentPrice?: number;
+  propertyType?: string;
+  contactPhone?: string;
   bedrooms?: number;
   bathrooms?: number;
   county?: string;

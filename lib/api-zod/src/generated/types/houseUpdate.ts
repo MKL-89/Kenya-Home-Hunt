@@ -10,6 +10,8 @@ export interface HouseUpdate {
   title?: string;
   description?: string;
   rentPrice?: number;
+  propertyType?: string;
+  contactPhone?: string;
   bedrooms?: number;
   bathrooms?: number;
   county?: string;
