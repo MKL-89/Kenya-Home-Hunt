@@ -4,8 +4,10 @@ import { useLocation, useParams } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import { useAuth } from "@clerk/react";
 import { useCreateHouse, useUpdateHouse, useGetHouse, getGetHouseQueryKey } from "@workspace/api-client-react";
 import { useUpload } from "@workspace/object-storage-web";
+import { compressImage } from "@/lib/compress-image";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -71,6 +73,9 @@ export function HouseForm() {
   const [selectedCounty, setSelectedCounty] = useState("");
   const [selectedTown, setSelectedTown] = useState("");
   const [mapCenter, setMapCenter] = useState<[number, number]>([-1.286389, 36.817223]);
+  const [isCompressing, setIsCompressing] = useState(false);
+
+  const { getToken } = useAuth();
 
   const { data: existingHouse, isLoading: isLoadingHouse } = useGetHouse(houseId, {
     query: { enabled: isEditing, queryKey: getGetHouseQueryKey(houseId) }
@@ -80,6 +85,12 @@ export function HouseForm() {
   const updateHouse = useUpdateHouse();
 
   const { uploadFile, isUploading, progress } = useUpload({
+    getHeaders: async () => {
+      const token = await getToken();
+      const headers: Record<string, string> = {};
+      if (token) headers["Authorization"] = `Bearer ${token}`;
+      return headers;
+    },
     onError: (err) => toast.error(`Upload failed: ${err.message}`),
   });
 
@@ -158,15 +169,31 @@ export function HouseForm() {
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
+
     for (const file of files) {
-      const result = await uploadFile(file);
-      if (result) {
-        const servingUrl = `/api/storage${result.objectPath}`;
-        const currentImages = form.getValues("images");
-        form.setValue("images", [...currentImages, servingUrl]);
-        toast.success(`${file.name} uploaded`);
+      try {
+        setIsCompressing(true);
+        const compressed = await compressImage(file, {
+          maxWidth: 1920,
+          maxHeight: 1920,
+          quality: 0.82,
+          skipBelowKb: 300,
+        });
+        setIsCompressing(false);
+
+        const result = await uploadFile(compressed);
+        if (result) {
+          const servingUrl = `/api/storage${result.objectPath}`;
+          const currentImages = form.getValues("images");
+          form.setValue("images", [...currentImages, servingUrl]);
+          toast.success(`${file.name} uploaded`);
+        }
+      } catch {
+        setIsCompressing(false);
+        toast.error(`Could not process ${file.name}`);
       }
     }
+
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -511,9 +538,14 @@ export function HouseForm() {
                     variant="outline"
                     className="w-full h-24 border-dashed flex flex-col gap-1"
                     onClick={() => fileInputRef.current?.click()}
-                    disabled={isUploading}
+                    disabled={isUploading || isCompressing}
                   >
-                    {isUploading ? (
+                    {isCompressing ? (
+                      <>
+                        <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                        <span className="text-sm text-muted-foreground">Compressing image…</span>
+                      </>
+                    ) : isUploading ? (
                       <>
                         <Loader2 className="h-5 w-5 animate-spin text-primary" />
                         <span className="text-sm text-muted-foreground">Uploading… {progress}%</span>
@@ -522,6 +554,7 @@ export function HouseForm() {
                       <>
                         <Upload className="h-5 w-5 text-muted-foreground" />
                         <span className="text-sm text-muted-foreground">Click to upload photos (JPG, PNG, WebP)</span>
+                        <span className="text-xs text-muted-foreground/60">Large images are auto-compressed</span>
                       </>
                     )}
                   </Button>
