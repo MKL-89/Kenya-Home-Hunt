@@ -1,15 +1,17 @@
 import { useLocation } from "wouter";
 import { useUser } from "@clerk/react";
-import { useUpsertUser } from "@workspace/api-client-react";
+import { useUpsertUser, getGetMeQueryKey } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { User, Home } from "lucide-react";
 import { toast } from "sonner";
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 
 export function Onboarding() {
   const [, setLocation] = useLocation();
   const { user: clerkUser } = useUser();
+  const queryClient = useQueryClient();
   const upsertUser = useUpsertUser();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -18,7 +20,7 @@ export function Onboarding() {
       toast.error("User email not found");
       return;
     }
-    
+
     setIsSubmitting(true);
     try {
       await upsertUser.mutateAsync({
@@ -26,11 +28,13 @@ export function Onboarding() {
           email: clerkUser.primaryEmailAddress.emailAddress,
           name: clerkUser.fullName || undefined,
           role,
-        }
+        },
       });
+      // Invalidate the /users/me cache so Navbar immediately gets the new role
+      await queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
       setLocation(role === "tenant" ? "/tenant-dashboard" : "/landlord-dashboard");
-    } catch (error) {
-      toast.error("Failed to save role");
+    } catch {
+      toast.error("Failed to save role. Please try again.");
       setIsSubmitting(false);
     }
   };
@@ -43,7 +47,7 @@ export function Onboarding() {
             <h1 className="text-3xl font-bold tracking-tight">Welcome to HomeHunt</h1>
             <p className="text-muted-foreground">Are you looking for a home or listing one?</p>
           </div>
-          
+
           <div className="grid md:grid-cols-2 gap-6">
             <button
               onClick={() => handleRoleSelection("tenant")}
@@ -55,10 +59,12 @@ export function Onboarding() {
               </div>
               <div className="text-center">
                 <h3 className="text-xl font-bold mb-2">Tenant</h3>
-                <p className="text-sm text-muted-foreground">I want to discover vacant homes and find my next rental property.</p>
+                <p className="text-sm text-muted-foreground">
+                  I want to discover vacant homes and find my next rental property.
+                </p>
               </div>
             </button>
-            
+
             <button
               onClick={() => handleRoleSelection("landlord")}
               disabled={isSubmitting}
@@ -69,7 +75,9 @@ export function Onboarding() {
               </div>
               <div className="text-center">
                 <h3 className="text-xl font-bold mb-2">Landlord</h3>
-                <p className="text-sm text-muted-foreground">I want to list my vacant properties and manage them efficiently.</p>
+                <p className="text-sm text-muted-foreground">
+                  I want to list my vacant properties and manage them efficiently.
+                </p>
               </div>
             </button>
           </div>
