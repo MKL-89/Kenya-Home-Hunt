@@ -152,6 +152,11 @@ export function HouseDetail() {
               </div>
               <h1 className="text-4xl font-bold tracking-tight mb-4">{house.title}</h1>
               <div className="flex flex-wrap gap-6 text-muted-foreground border-y py-4 my-6">
+                {house.propertyType && (
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-sm font-medium">{house.propertyType}</Badge>
+                  </div>
+                )}
                 {house.bedrooms !== undefined && house.bedrooms > 0 && (
                   <div className="flex items-center gap-2">
                     <Bed className="h-5 w-5 text-primary" />
@@ -229,9 +234,12 @@ export function HouseDetail() {
                     </div>
                     <div>
                       <div className="font-medium">{house.landlordName || "Landlord"}</div>
-                      {house.landlordPhone && (
-                        <a href={`tel:${house.landlordPhone}`} className="text-sm text-primary hover:underline flex items-center gap-1">
-                          <Phone className="h-3 w-3" />{house.landlordPhone}
+                      {(house.contactPhone || house.landlordPhone) && (
+                        <a
+                          href={`tel:${house.contactPhone || house.landlordPhone}`}
+                          className="text-sm text-primary hover:underline flex items-center gap-1"
+                        >
+                          <Phone className="h-3 w-3" />{house.contactPhone || house.landlordPhone}
                         </a>
                       )}
                     </div>

@@ -584,6 +584,10 @@ components:
           type: ["string", "null"]
         rentPrice:
           type: number
+        propertyType:
+          type: string
+        contactPhone:
+          type: string
         bedrooms:
           type: integer
         bathrooms:
@@ -630,6 +634,10 @@ components:
           type: string
         rentPrice:
           type: number
+        propertyType:
+          type: string
+        contactPhone:
+          type: string
         bedrooms:
           type: integer
         bathrooms:
@@ -666,6 +674,10 @@ components:
           type: string
         rentPrice:
           type: number
+        propertyType:
+          type: string
+        contactPhone:
+          type: string
         bedrooms:
           type: integer
         bathrooms:

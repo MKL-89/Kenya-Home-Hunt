@@ -10,6 +10,8 @@ export const housesTable = pgTable("houses", {
   rentPrice: doublePrecision("rent_price").notNull(),
   bedrooms: integer("bedrooms").notNull().default(1),
   bathrooms: integer("bathrooms").notNull().default(1),
+  propertyType: text("property_type").notNull().default(""),
+  contactPhone: text("contact_phone").notNull().default(""),
   county: text("county").notNull().default(""),
   town: text("town").notNull().default(""),
   estate: text("estate").notNull().default(""),
