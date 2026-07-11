@@ -7,8 +7,9 @@ const router = Router();
 
 const requireAuth = (req: any, res: any, next: any) => {
   const auth = getAuth(req);
-  const userId = auth?.sessionClaims?.userId || auth?.userId;
+  const userId = auth?.userId;
   if (!userId) {
+    req.log.warn({ authDebug: JSON.stringify(auth) }, "requireAuth: no userId — rejecting 401");
     return res.status(401).json({ error: "Unauthorized" });
   }
   req.clerkUserId = userId;
