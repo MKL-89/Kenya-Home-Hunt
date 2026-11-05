@@ -7,6 +7,14 @@ import {
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
 import { ObjectPermission } from "../lib/objectAcl";
 import { requireAuth } from "./users";
+import { db, usersTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
+import {
+  isSupabaseStorageConfigured,
+  createPhotoUpload,
+  publicPhotoUrl,
+  UploadValidationError,
+} from "../lib/supabaseStorage";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -28,6 +36,20 @@ router.post("/storage/uploads/request-url", requireAuth, async (req: Request, re
   try {
     const { name, size, contentType } = parsed.data;
 
+    // Only landlords add listing photos
+    const clerkUserId = (req as any).clerkUserId as string;
+    const user = await db.select({ role: usersTable.role }).from(usersTable).where(eq(usersTable.clerkId, clerkUserId)).limit(1);
+    if (user[0]?.role !== "landlord") {
+      res.status(403).json({ error: "Only landlords can upload listing photos" });
+      return;
+    }
+
+    if (isSupabaseStorageConfigured()) {
+      const { uploadURL, objectPath } = await createPhotoUpload({ contentType, size, userId: clerkUserId });
+      res.json(RequestUploadUrlResponse.parse({ uploadURL, objectPath, metadata: { name, size, contentType } }));
+      return;
+    }
+
     const uploadURL = await objectStorageService.getObjectEntityUploadURL();
     const objectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
 
@@ -39,6 +61,10 @@ router.post("/storage/uploads/request-url", requireAuth, async (req: Request, re
       }),
     );
   } catch (error) {
+    if (error instanceof UploadValidationError) {
+      res.status(400).json({ error: error.message });
+      return;
+    }
     req.log.error({ err: error }, "Error generating upload URL");
     res.status(500).json({ error: "Failed to generate upload URL" });
   }
@@ -90,6 +116,17 @@ router.get("/storage/objects/*path", async (req: Request, res: Response) => {
     const raw = req.params.path;
     const wildcardPath = Array.isArray(raw) ? raw.join("/") : raw;
     const objectPath = `/objects/${wildcardPath}`;
+
+    if (isSupabaseStorageConfigured()) {
+      if (wildcardPath.split("/").some((part) => part === ".." || part === "")) {
+        res.status(400).json({ error: "Invalid path" });
+        return;
+      }
+      res.set("Cache-Control", "public, max-age=86400");
+      res.redirect(302, publicPhotoUrl(wildcardPath));
+      return;
+    }
+
     const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
 
     // --- Protected route example (uncomment when using replit-auth) ---
