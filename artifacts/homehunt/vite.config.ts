@@ -54,6 +54,8 @@ export default defineConfig({
     dedupe: ["react", "react-dom"],
   },
   root: path.resolve(import.meta.dirname),
+  // Read VITE_* settings from the repo-root .env (when present)
+  envDir: path.resolve(import.meta.dirname, "..", ".."),
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
@@ -66,6 +68,11 @@ export default defineConfig({
     fs: {
       strict: true,
     },
+    // Local development: forward /api to the Express server. On Replit the
+    // shared proxy routes /api before it reaches Vite, so this is unused there.
+    proxy: process.env.API_PORT
+      ? { "/api": { target: `http://localhost:${process.env.API_PORT}`, changeOrigin: true } }
+      : undefined,
   },
   preview: {
     port,
