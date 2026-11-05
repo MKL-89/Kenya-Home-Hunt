@@ -35,7 +35,9 @@ interface MapProps {
 function LocationPicker({ onSelect }: { onSelect: (lat: number, lng: number) => void }) {
   useMapEvents({
     click(e) {
-      onSelect(e.latlng.lat, e.latlng.lng);
+      // wrap() maps clicks on a repeated world copy back to real coordinates
+      const p = e.latlng.wrap();
+      onSelect(p.lat, p.lng);
     },
   });
   return null;
@@ -75,6 +77,7 @@ export function PropertyMap({
       center={center}
       zoom={zoom}
       scrollWheelZoom={interactive}
+      worldCopyJump
       dragging={interactive}
       className="w-full h-full z-0"
     >

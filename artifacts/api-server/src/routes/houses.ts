@@ -7,7 +7,8 @@ import { houseColumns } from "../lib/houseColumns";
 const router = Router();
 
 // Kenya bounding box — rough check to keep listings in Kenya
-const KENYA_BOUNDS = { minLat: -4.9, maxLat: 5.0, minLng: 33.9, maxLng: 41.9 };
+// Keep in step with artifacts/homehunt/src/lib/kenya-bounds.ts
+const KENYA_BOUNDS = { minLat: -4.9, maxLat: 5.1, minLng: 33.8, maxLng: 42.0 };
 const HOUSE_STATUSES = ["vacant", "occupied"];
 
 function isInKenya(lat: number, lng: number): boolean {
@@ -104,7 +105,7 @@ router.post("/houses", requireAuth, async (req: any, res: any) => {
       return res.status(400).json({ error: "Valid latitude and longitude are required" });
     }
     if (!isInKenya(lat, lng)) {
-      return res.status(400).json({ error: "Property location must be within Kenya" });
+      return res.status(400).json({ error: "The map pin is outside Kenya. Click the map exactly where the property is." });
     }
 
     const resolvedCounty = county || city || "";
@@ -231,7 +232,7 @@ router.put("/houses/:id", requireAuth, async (req: any, res: any) => {
       return res.status(400).json({ error: "Valid latitude and longitude are required" });
     }
     if (!isInKenya(lat, lng)) {
-      return res.status(400).json({ error: "Property location must be within Kenya" });
+      return res.status(400).json({ error: "The map pin is outside Kenya. Click the map exactly where the property is." });
     }
 
     const updated = await db.update(housesTable).set({

@@ -9,6 +9,8 @@ import { useCreateHouse, useUpdateHouse, useGetHouse, getGetHouseQueryKey } from
 import { useUpload } from "@workspace/object-storage-web";
 import { compressImage } from "@/lib/compress-image";
 import { PROPERTY_TYPES } from "@/lib/property-types";
+import { isInKenya, normalizeLng } from "@/lib/kenya-bounds";
+import { ApiError } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -53,6 +55,9 @@ const formSchema = z.object({
   longitude: z.number().min(-180).max(180),
   images: z.array(z.string()).default([]),
   amenities: z.array(z.string()).default([]),
+}).refine((v) => isInKenya(v.latitude, v.longitude), {
+  path: ["latitude"],
+  message: "The map pin is outside Kenya. Click the map exactly where the property is.",
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -155,8 +160,10 @@ export function HouseForm() {
       queryClient.invalidateQueries();
       setLocation("/landlord-dashboard");
     } catch (error: unknown) {
+      // Show the API's own explanation, without the "HTTP 400 Bad Request:" prefix
+      const apiMessage = error instanceof ApiError ? (error.data as { error?: string } | null)?.error : undefined;
       const message =
-        error instanceof Error ? error.message : "Failed to save listing. Please try again.";
+        apiMessage || (error instanceof Error ? error.message : "Failed to save listing. Please try again.");
       toast.error(message);
     }
   };
@@ -508,8 +515,9 @@ export function HouseForm() {
                       center={mapCenter}
                       zoom={selectedTown ? 14 : selectedCounty ? 10 : 7}
                       selectedPosition={hasPinned ? [form.watch("latitude"), form.watch("longitude")] : undefined}
-                      onLocationSelect={(lat, lng) => {
-                        form.setValue("latitude", lat);
+                      onLocationSelect={(lat, rawLng) => {
+                        const lng = normalizeLng(rawLng);
+                        form.setValue("latitude", lat, { shouldValidate: form.formState.isSubmitted });
                         form.setValue("longitude", lng);
                         setMapCenter([lat, lng]);
                         setHasPinned(true);
@@ -519,6 +527,9 @@ export function HouseForm() {
                   <div className="text-xs text-muted-foreground font-mono bg-muted/30 rounded px-2 py-1">
                     📍 Lat: {form.watch("latitude").toFixed(6)}, Lng: {form.watch("longitude").toFixed(6)}
                   </div>
+                  {form.formState.errors.latitude && (
+                    <p className="text-sm font-medium text-destructive">{form.formState.errors.latitude.message}</p>
+                  )}
                 </div>
 
                 {/* Photos */}
