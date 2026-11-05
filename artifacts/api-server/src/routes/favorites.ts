@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { db, favoritesTable, housesTable, usersTable } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
+import { houseColumns } from "../lib/houseColumns";
 import { requireAuth } from "./users";
 
 const router = Router();
@@ -12,30 +13,12 @@ router.get("/favorites", requireAuth, async (req: any, res: any) => {
     if (!user[0]) return res.status(401).json({ error: "Unauthorized" });
 
     const favs = await db
-      .select({
-        id: housesTable.id,
-        landlordId: housesTable.landlordId,
-        landlordName: usersTable.name,
-        landlordPhone: usersTable.phone,
-        title: housesTable.title,
-        description: housesTable.description,
-        rentPrice: housesTable.rentPrice,
-        bedrooms: housesTable.bedrooms,
-        bathrooms: housesTable.bathrooms,
-        city: housesTable.city,
-        address: housesTable.address,
-        latitude: housesTable.latitude,
-        longitude: housesTable.longitude,
-        status: housesTable.status,
-        images: housesTable.images,
-        amenities: housesTable.amenities,
-        createdAt: housesTable.createdAt,
-        updatedAt: housesTable.updatedAt,
-      })
+      .select(houseColumns)
       .from(favoritesTable)
       .innerJoin(housesTable, eq(favoritesTable.houseId, housesTable.id))
       .leftJoin(usersTable, eq(housesTable.landlordId, usersTable.id))
-      .where(eq(favoritesTable.tenantId, user[0].id));
+      .where(eq(favoritesTable.tenantId, user[0].id))
+      .orderBy(desc(favoritesTable.createdAt));
 
     return res.json(favs.map(h => ({ ...h, isFavorited: true })));
   } catch (err) {
@@ -48,8 +31,12 @@ router.get("/favorites", requireAuth, async (req: any, res: any) => {
 router.post("/favorites/:houseId", requireAuth, async (req: any, res: any) => {
   try {
     const houseId = Number(req.params.houseId);
+    if (!Number.isInteger(houseId) || houseId <= 0) return res.status(400).json({ error: "Invalid house ID" });
     const user = await db.select().from(usersTable).where(eq(usersTable.clerkId, req.clerkUserId)).limit(1);
     if (!user[0]) return res.status(401).json({ error: "Unauthorized" });
+
+    const house = await db.select({ id: housesTable.id }).from(housesTable).where(eq(housesTable.id, houseId)).limit(1);
+    if (!house[0]) return res.status(404).json({ error: "House not found" });
 
     const existing = await db.select().from(favoritesTable).where(
       and(eq(favoritesTable.tenantId, user[0].id), eq(favoritesTable.houseId, houseId))

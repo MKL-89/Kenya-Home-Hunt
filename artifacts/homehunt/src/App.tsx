@@ -21,7 +21,7 @@ import { HouseForm } from "@/pages/house-form";
 import { Profile } from "@/pages/profile";
 import { InquiriesPage } from "@/pages/inquiries";
 import NotFound from "@/pages/not-found";
-import { useGetMe, getGetMeQueryKey } from "@workspace/api-client-react";
+import { useGetMe, getGetMeQueryKey, ApiError } from "@workspace/api-client-react";
 import { Loader2 } from "lucide-react";
 
 const clerkPubKey = publishableKeyFromHost(
@@ -127,6 +127,26 @@ function ClerkQueryClientCacheInvalidator() {
 }
 
 // Spinner shown while the app determines where to send the user
+/** True only when the API says this signed-in user has no profile yet. */
+function isMissingProfile(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 404;
+}
+
+function dashboardFor(role: string): string {
+  return role === "landlord" ? "/landlord-dashboard" : "/tenant-dashboard";
+}
+
+function LoadError() {
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-background px-4 text-center">
+      <p className="text-muted-foreground">We couldn't load your account. Check your connection and try again.</p>
+      <button className="text-primary font-medium hover:underline" onClick={() => window.location.reload()}>
+        Retry
+      </button>
+    </div>
+  );
+}
+
 function FullPageSpinner() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
@@ -141,7 +161,7 @@ function FullPageSpinner() {
  */
 function HomeRedirect() {
   const { user: clerkUser, isLoaded: clerkLoaded } = useUser();
-  const { data: dbUser, isLoading: dbLoading, isError } = useGetMe({
+  const { data: dbUser, isLoading: dbLoading, error } = useGetMe({
     query: {
       enabled: clerkLoaded && !!clerkUser?.id,
       // Don't permanently cache errors — retry once on mount so stale 401s
@@ -162,11 +182,13 @@ function HomeRedirect() {
   // Signed in, waiting for the DB user lookup
   if (dbLoading) return <FullPageSpinner />;
 
-  // Signed in but no DB user (or error) → onboarding
-  if (!dbUser || isError) return <Redirect to="/onboarding" />;
+  // Signed in but no profile yet → onboarding. Other errors must not send an
+  // existing user back to the role picker.
+  if (isMissingProfile(error)) return <Redirect to="/onboarding" />;
+  if (!dbUser) return <LoadError />;
 
   // Signed in + DB user → send to the right dashboard
-  return <Redirect to={dbUser.role === "tenant" ? "/tenant-dashboard" : "/landlord-dashboard"} />;
+  return <Redirect to={dashboardFor(dbUser.role)} />;
 }
 
 /**
@@ -176,10 +198,11 @@ function HomeRedirect() {
  * - Not signed in  → /sign-in
  * - Signed in, no DB profile → /onboarding
  * - Signed in + profile → renders children
+ * - `role` given and the user has another role → their own dashboard
  */
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
+function ProtectedRoute({ children, role }: { children: React.ReactNode; role?: "tenant" | "landlord" }) {
   const { user: clerkUser, isLoaded: clerkLoaded } = useUser();
-  const { data: dbUser, isLoading: dbLoading } = useGetMe({
+  const { data: dbUser, isLoading: dbLoading, error } = useGetMe({
     query: {
       enabled: clerkLoaded && !!clerkUser?.id,
       retry: 1,
@@ -192,7 +215,9 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   if (!clerkLoaded) return <FullPageSpinner />;
   if (!clerkUser) return <Redirect to="/sign-in" />;
   if (dbLoading) return <FullPageSpinner />;
-  if (!dbUser) return <Redirect to="/onboarding" />;
+  if (isMissingProfile(error)) return <Redirect to="/onboarding" />;
+  if (!dbUser) return <LoadError />;
+  if (role && dbUser.role !== role) return <Redirect to={dashboardFor(dbUser.role)} />;
 
   return <>{children}</>;
 }
@@ -227,25 +252,25 @@ function ClerkProviderWithRoutes() {
 
           {/* Protected routes — require sign-in + completed onboarding */}
           <Route path="/tenant-dashboard">
-            <ProtectedRoute><TenantDashboard /></ProtectedRoute>
+            <ProtectedRoute role="tenant"><TenantDashboard /></ProtectedRoute>
           </Route>
           <Route path="/landlord-dashboard">
-            <ProtectedRoute><LandlordDashboard /></ProtectedRoute>
+            <ProtectedRoute role="landlord"><LandlordDashboard /></ProtectedRoute>
           </Route>
           <Route path="/favorites">
             <ProtectedRoute><Favorites /></ProtectedRoute>
           </Route>
           <Route path="/add-house">
-            <ProtectedRoute><HouseForm /></ProtectedRoute>
+            <ProtectedRoute role="landlord"><HouseForm /></ProtectedRoute>
           </Route>
           <Route path="/edit-house/:id">
-            <ProtectedRoute><HouseForm /></ProtectedRoute>
+            <ProtectedRoute role="landlord"><HouseForm /></ProtectedRoute>
           </Route>
           <Route path="/profile">
             <ProtectedRoute><Profile /></ProtectedRoute>
           </Route>
           <Route path="/inquiries">
-            <ProtectedRoute><InquiriesPage /></ProtectedRoute>
+            <ProtectedRoute role="landlord"><InquiriesPage /></ProtectedRoute>
           </Route>
 
           <Route component={NotFound} />

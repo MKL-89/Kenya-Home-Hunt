@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
@@ -18,11 +18,17 @@ L.Icon.Default.mergeOptions({
   shadowUrl: markerShadow,
 });
 
+/** Nairobi — the default centre for the whole app. */
+export const KENYA_CENTER: [number, number] = [-1.286389, 36.817223];
+export const KENYA_DEFAULT_ZOOM = 7;
+
 interface MapProps {
   houses?: House[];
   center?: [number, number];
   zoom?: number;
   onLocationSelect?: (lat: number, lng: number) => void;
+  /** Position of the pin the user has chosen (location-picker mode). */
+  selectedPosition?: [number, number];
   interactive?: boolean;
 }
 
@@ -35,11 +41,31 @@ function LocationPicker({ onSelect }: { onSelect: (lat: number, lng: number) => 
   return null;
 }
 
-export function PropertyMap({ houses = [], center = [-1.286389, 36.817223], zoom = 6, onLocationSelect, interactive = true }: MapProps) {
+/**
+ * MapContainer only reads `center`/`zoom` on first render, so move the map
+ * whenever those props change (e.g. after picking a county or town).
+ */
+function Recenter({ center, zoom }: { center: [number, number]; zoom: number }) {
+  const map = useMap();
+  const [lat, lng] = center;
+  useEffect(() => {
+    map.setView([lat, lng], zoom);
+  }, [map, lat, lng, zoom]);
+  return null;
+}
+
+export function PropertyMap({
+  houses = [],
+  center = KENYA_CENTER,
+  zoom = KENYA_DEFAULT_ZOOM,
+  onLocationSelect,
+  selectedPosition,
+  interactive = true,
+}: MapProps) {
   return (
-    <MapContainer 
-      center={center} 
-      zoom={zoom} 
+    <MapContainer
+      center={center}
+      zoom={zoom}
       scrollWheelZoom={interactive}
       dragging={interactive}
       className="w-full h-full z-0"
@@ -48,6 +74,7 @@ export function PropertyMap({ houses = [], center = [-1.286389, 36.817223], zoom
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
+      <Recenter center={center} zoom={zoom} />
       {houses.map((house) => (
         <Marker key={house.id} position={[house.latitude, house.longitude]}>
           <Popup className="min-w-[200px]">
@@ -58,7 +85,9 @@ export function PropertyMap({ houses = [], center = [-1.286389, 36.817223], zoom
               <div>
                 <h4 className="font-semibold text-sm line-clamp-1">{house.title}</h4>
                 <p className="text-primary font-bold text-xs">{formatCurrency(house.rentPrice)}/mo</p>
-                <p className="text-xs text-muted-foreground truncate">{house.city}</p>
+                <p className="text-xs text-muted-foreground truncate">
+                  {[house.estate, house.town, house.county || house.city].filter(Boolean).join(", ")}
+                </p>
               </div>
               <Button size="sm" className="w-full text-xs h-8" asChild>
                 <Link href={`/house/${house.id}`}>View Details</Link>
@@ -67,13 +96,9 @@ export function PropertyMap({ houses = [], center = [-1.286389, 36.817223], zoom
           </Popup>
         </Marker>
       ))}
-      
+
       {onLocationSelect && <LocationPicker onSelect={onLocationSelect} />}
-      
-      {/* If center is provided specifically for location selection to show a marker */}
-      {onLocationSelect && center[0] !== -1.286389 && (
-        <Marker position={center} />
-      )}
+      {selectedPosition && <Marker position={selectedPosition} />}
     </MapContainer>
   );
 }

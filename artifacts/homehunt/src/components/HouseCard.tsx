@@ -1,4 +1,5 @@
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
+import { useUser } from "@clerk/react";
 import { formatCurrency } from "@/lib/format";
 import { MapPin, Bed, Bath, Heart } from "lucide-react";
 import { House, useAddFavorite, useRemoveFavorite } from "@workspace/api-client-react";
@@ -12,11 +13,18 @@ export function HouseCard({ house }: { house: House }) {
   const queryClient = useQueryClient();
   const addFavorite = useAddFavorite();
   const removeFavorite = useRemoveFavorite();
+  const { isSignedIn } = useUser();
+  const [, setLocation] = useLocation();
 
   const handleFavoriteToggle = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
+    if (!isSignedIn) {
+      setLocation("/sign-in");
+      return;
+    }
+
     try {
       if (house.isFavorited) {
         await removeFavorite.mutateAsync({ houseId: house.id });
@@ -74,7 +82,7 @@ export function HouseCard({ house }: { house: House }) {
           
           <div className="flex items-center text-sm text-muted-foreground mb-4">
             <MapPin className="h-3.5 w-3.5 mr-1 shrink-0" />
-            <span className="line-clamp-1">{house.address}, {house.city}</span>
+            <span className="line-clamp-1">{[house.estate, house.town, house.county || house.city].filter(Boolean).join(", ") || house.address}</span>
           </div>
           
           <div className="mt-auto flex items-center gap-4 text-sm text-muted-foreground pt-4 border-t">

@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { PropertyMap } from "@/components/Map";
+import { PropertyMap, KENYA_CENTER } from "@/components/Map";
 import { Loader2, Upload, X, ImageIcon, MapPin, Phone } from "lucide-react";
 import { toast } from "sonner";
 import { queryClient } from "@/lib/queryClient";
@@ -37,6 +37,9 @@ const PROPERTY_TYPES = [
   "Villa",
   "Commercial Space",
 ];
+
+// Radix Select does not allow an empty-string item value
+const ESTATE_NONE = "__none__";
 
 const COMMON_AMENITIES = [
   "Parking", "Security", "Borehole Water", "Wifi",
@@ -72,7 +75,8 @@ export function HouseForm() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedCounty, setSelectedCounty] = useState("");
   const [selectedTown, setSelectedTown] = useState("");
-  const [mapCenter, setMapCenter] = useState<[number, number]>([-1.286389, 36.817223]);
+  const [mapCenter, setMapCenter] = useState<[number, number]>(KENYA_CENTER);
+  const [hasPinned, setHasPinned] = useState(false);
   const [isCompressing, setIsCompressing] = useState(false);
 
   const { getToken } = useAuth();
@@ -108,8 +112,8 @@ export function HouseForm() {
       town: "",
       estate: "",
       address: "",
-      latitude: -1.286389,
-      longitude: 36.817223,
+      latitude: KENYA_CENTER[0],
+      longitude: KENYA_CENTER[1],
       images: [],
       amenities: [],
     },
@@ -139,6 +143,7 @@ export function HouseForm() {
         amenities: existingHouse.amenities || [],
       });
       setMapCenter([existingHouse.latitude, existingHouse.longitude]);
+      setHasPinned(true);
     }
   }, [existingHouse, isEditing, form]);
 
@@ -368,6 +373,7 @@ export function HouseForm() {
                             setMapCenter(center);
                             form.setValue("latitude", center[0]);
                             form.setValue("longitude", center[1]);
+                            setHasPinned(true);
                           }}
                         >
                           <FormControl>
@@ -402,6 +408,7 @@ export function HouseForm() {
                             setMapCenter(center);
                             form.setValue("latitude", center[0]);
                             form.setValue("longitude", center[1]);
+                            setHasPinned(true);
                           }}
                           disabled={!selectedCounty}
                         >
@@ -429,8 +436,8 @@ export function HouseForm() {
                         <FormLabel>Estate / Area</FormLabel>
                         {estates.length > 0 ? (
                           <Select
-                            value={field.value}
-                            onValueChange={field.onChange}
+                            value={field.value || ESTATE_NONE}
+                            onValueChange={(val) => field.onChange(val === ESTATE_NONE ? "" : val)}
                             disabled={!selectedTown}
                           >
                             <FormControl>
@@ -439,7 +446,7 @@ export function HouseForm() {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent className="max-h-60">
-                              <SelectItem value="">None / Other</SelectItem>
+                              <SelectItem value={ESTATE_NONE}>None / Other</SelectItem>
                               {estates.map(e => (
                                 <SelectItem key={e} value={e}>{e}</SelectItem>
                               ))}
@@ -509,11 +516,13 @@ export function HouseForm() {
                   <div className="h-[320px] border rounded-md overflow-hidden relative z-0">
                     <PropertyMap
                       center={mapCenter}
-                      zoom={selectedTown ? 14 : selectedCounty ? 10 : 6}
+                      zoom={selectedTown ? 14 : selectedCounty ? 10 : 7}
+                      selectedPosition={hasPinned ? [form.watch("latitude"), form.watch("longitude")] : undefined}
                       onLocationSelect={(lat, lng) => {
                         form.setValue("latitude", lat);
                         form.setValue("longitude", lng);
                         setMapCenter([lat, lng]);
+                        setHasPinned(true);
                       }}
                     />
                   </div>

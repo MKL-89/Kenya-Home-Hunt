@@ -34,16 +34,23 @@ router.get("/users/me", requireAuth, async (req: any, res: any) => {
 router.put("/users/me", requireAuth, async (req: any, res: any) => {
   try {
     const { email, name, phone, role } = req.body;
+    if (role !== undefined && !["tenant", "landlord"].includes(role)) {
+      return res.status(400).json({ error: "Role must be tenant or landlord" });
+    }
     const existing = await db.select().from(usersTable).where(eq(usersTable.clerkId, req.clerkUserId)).limit(1);
     let user;
     if (existing[0]) {
       const updated = await db
         .update(usersTable)
-        .set({ email, name, phone, role, updatedAt: new Date() })
+        // Role is fixed after onboarding; changing it here would bypass landlord-only checks
+        .set({ email, name, phone, updatedAt: new Date() })
         .where(eq(usersTable.clerkId, req.clerkUserId))
         .returning();
       user = updated[0];
     } else {
+      if (!email || typeof email !== "string") {
+        return res.status(400).json({ error: "Email is required" });
+      }
       const created = await db
         .insert(usersTable)
         .values({ clerkId: req.clerkUserId, email, name, phone, role: role || "tenant" })

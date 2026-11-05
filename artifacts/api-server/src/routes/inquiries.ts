@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, usersTable, housesTable, inquiriesTable } from "@workspace/db";
-import { eq, and, count } from "drizzle-orm";
+import { eq, and, count, desc } from "drizzle-orm";
 import { requireAuth } from "./users";
 import { z } from "zod";
 
@@ -25,6 +25,9 @@ router.post("/inquiries", requireAuth, async (req: any, res: any) => {
 
     const house = await db.select().from(housesTable).where(eq(housesTable.id, parsed.data.houseId)).limit(1);
     if (!house[0]) return res.status(404).json({ error: "House not found" });
+    if (house[0].landlordId === tenant[0].id) {
+      return res.status(400).json({ error: "You cannot send an inquiry about your own listing" });
+    }
 
     const inquiry = await db.insert(inquiriesTable).values({
       tenantId: tenant[0].id,
@@ -64,9 +67,9 @@ router.get("/inquiries/received", requireAuth, async (req: any, res: any) => {
       .from(inquiriesTable)
       .innerJoin(housesTable, eq(inquiriesTable.houseId, housesTable.id))
       .where(eq(inquiriesTable.landlordId, user[0].id))
-      .orderBy(inquiriesTable.createdAt);
+      .orderBy(desc(inquiriesTable.createdAt));
 
-    return res.json(rows.reverse());
+    return res.json(rows);
   } catch (err) {
     req.log.error(err);
     return res.status(500).json({ error: "Internal server error" });
@@ -95,9 +98,9 @@ router.get("/inquiries/sent", requireAuth, async (req: any, res: any) => {
       .innerJoin(housesTable, eq(inquiriesTable.houseId, housesTable.id))
       .innerJoin(usersTable, eq(inquiriesTable.landlordId, usersTable.id))
       .where(eq(inquiriesTable.tenantId, user[0].id))
-      .orderBy(inquiriesTable.createdAt);
+      .orderBy(desc(inquiriesTable.createdAt));
 
-    return res.json(rows.reverse());
+    return res.json(rows);
   } catch (err) {
     req.log.error(err);
     return res.status(500).json({ error: "Internal server error" });
@@ -111,6 +114,7 @@ router.patch("/inquiries/:id/read", requireAuth, async (req: any, res: any) => {
     if (!user[0]) return res.status(401).json({ error: "Unauthorized" });
 
     const id = parseInt(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ error: "Invalid inquiry ID" });
     const updated = await db
       .update(inquiriesTable)
       .set({ status: "read" })

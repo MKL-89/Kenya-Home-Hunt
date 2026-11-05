@@ -18,9 +18,10 @@ export function MapPage() {
   const [minRent, setMinRent] = useState<string>("");
   const [maxRent, setMaxRent] = useState<string>("");
   const [bedrooms, setBedrooms] = useState<string>("all");
+  const [status, setStatus] = useState<"vacant" | "occupied" | "all">("vacant");
 
   const queryParams = {
-    status: "vacant" as const,
+    ...(status !== "all" && { status }),
     ...(county !== "all" && { county }),
     ...(town !== "all" && { town }),
     ...(estate !== "all" && { estate }),
@@ -37,7 +38,8 @@ export function MapPage() {
   const towns = county !== "all" ? getTownsForCounty(county) : [];
   const estates = county !== "all" && town !== "all" ? getEstatesForTown(county, town) : [];
 
-  const hasFilters = county !== "all" || town !== "all" || estate !== "all" || minRent || maxRent || bedrooms !== "all";
+  const hasFilters = county !== "all" || town !== "all" || estate !== "all" || minRent || maxRent || bedrooms !== "all" || status !== "vacant";
+  const statusLabel = status === "all" ? "" : `${status} `;
 
   const clearFilters = () => {
     setCounty("all");
@@ -46,6 +48,7 @@ export function MapPage() {
     setMinRent("");
     setMaxRent("");
     setBedrooms("all");
+    setStatus("vacant");
   };
 
   const FilterContent = () => (
@@ -141,6 +144,21 @@ export function MapPage() {
         </Select>
       </div>
 
+      {/* Status */}
+      <div className="space-y-2">
+        <label className="text-sm font-medium">Status</label>
+        <Select value={status} onValueChange={(v) => setStatus(v as typeof status)}>
+          <SelectTrigger>
+            <SelectValue placeholder="Vacant" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="vacant">Vacant only</SelectItem>
+            <SelectItem value="occupied">Occupied only</SelectItem>
+            <SelectItem value="all">All properties</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
       {hasFilters && (
         <Button variant="outline" className="w-full mt-2 gap-2" onClick={clearFilters}>
           <X className="h-4 w-4" /> Clear Filters
@@ -166,7 +184,7 @@ export function MapPage() {
                 <span className="flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /> Finding homes...</span>
               ) : (
                 <span>
-                  <span className="font-bold text-foreground">{houses?.length || 0}</span> vacant home{houses?.length !== 1 ? "s" : ""} found
+                  <span className="font-bold text-foreground">{houses?.length || 0}</span> {statusLabel}home{houses?.length !== 1 ? "s" : ""} found
                   {county !== "all" && <span className="ml-1">in {town !== "all" ? town : county}</span>}
                 </span>
               )}

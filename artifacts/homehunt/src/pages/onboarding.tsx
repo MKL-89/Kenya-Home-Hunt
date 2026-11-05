@@ -1,6 +1,6 @@
-import { useLocation } from "wouter";
+import { useLocation, Redirect } from "wouter";
 import { useUser } from "@clerk/react";
-import { useUpsertUser, getGetMeQueryKey } from "@workspace/api-client-react";
+import { useUpsertUser, useGetMe, getGetMeQueryKey } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { User, Home } from "lucide-react";
@@ -14,6 +14,9 @@ export function Onboarding() {
   const queryClient = useQueryClient();
   const upsertUser = useUpsertUser();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { data: existingUser } = useGetMe({
+    query: { enabled: !!clerkUser?.id, retry: false, queryKey: getGetMeQueryKey() },
+  });
 
   const handleRoleSelection = async (role: "tenant" | "landlord") => {
     if (!clerkUser?.primaryEmailAddress?.emailAddress) {
@@ -40,6 +43,10 @@ export function Onboarding() {
       setIsSubmitting(false);
     }
   };
+
+  if (existingUser && !isSubmitting) {
+    return <Redirect to={existingUser.role === "landlord" ? "/landlord-dashboard" : "/tenant-dashboard"} />;
+  }
 
   return (
     <MainLayout>

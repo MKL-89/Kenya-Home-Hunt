@@ -4,10 +4,10 @@ import {
   useGetHouse, getGetHouseQueryKey,
   useAddFavorite, useRemoveFavorite,
   getListFavoritesQueryKey, getListHousesQueryKey,
-  useSendInquiry,
+  useSendInquiry, useGetMe, getGetMeQueryKey,
 } from "@workspace/api-client-react";
 import { useUser } from "@clerk/react";
-import { useParams, Link } from "wouter";
+import { useParams, Link, useLocation } from "wouter";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -25,6 +25,10 @@ export function HouseDetail() {
   const { id } = useParams<{ id: string }>();
   const houseId = parseInt(id || "0");
   const { isSignedIn } = useUser();
+  const [, setLocation] = useLocation();
+  const { data: me } = useGetMe({
+    query: { enabled: !!isSignedIn, retry: false, queryKey: getGetMeQueryKey() },
+  });
   
   const queryClient = useQueryClient();
   const { data: house, isLoading } = useGetHouse(houseId, {
@@ -50,13 +54,18 @@ export function HouseDetail() {
       });
       setInquirySent(true);
       toast.success("Message sent to landlord!");
-    } catch {
-      toast.error("Failed to send message");
+    } catch (err: unknown) {
+      const apiMessage = (err as { data?: { error?: string } })?.data?.error;
+      toast.error(apiMessage || "Failed to send message");
     }
   };
 
   const handleFavoriteToggle = async () => {
     if (!house) return;
+    if (!isSignedIn) {
+      setLocation("/sign-in");
+      return;
+    }
     try {
       if (house.isFavorited) {
         await removeFavorite.mutateAsync({ houseId: house.id });
@@ -245,7 +254,12 @@ export function HouseDetail() {
                     </div>
                   </div>
 
-                  {!isSignedIn ? (
+                  {me && house.landlordId === me.id ? (
+                    <div className="rounded-lg bg-muted p-4 text-center text-sm text-muted-foreground">
+                      This is your listing.{" "}
+                      <Link href={`/edit-house/${house.id}`} className="text-primary hover:underline">Edit it</Link>
+                    </div>
+                  ) : !isSignedIn ? (
                     <Link href="/sign-in">
                       <Button variant="outline" className="w-full">
                         Sign in to send a message

@@ -36,6 +36,11 @@ export function Navbar() {
           </Link>
           
           <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-muted-foreground">
+            <Show when="signed-out">
+              <Link href="/map" className="hover:text-primary transition-colors flex items-center gap-2">
+                <Map className="h-4 w-4" /> Browse Homes
+              </Link>
+            </Show>
             <Show when="signed-in">
               {dbUser?.role === "tenant" && (
                 <>
@@ -74,6 +79,9 @@ export function Navbar() {
 
         <div className="flex items-center gap-4">
           <Show when="signed-out">
+            <Link href="/map" className="md:hidden text-sm font-medium hover:text-primary transition-colors">
+              Browse
+            </Link>
             <Link href="/sign-in" className="text-sm font-medium hover:text-primary transition-colors">
               Sign In
             </Link>
