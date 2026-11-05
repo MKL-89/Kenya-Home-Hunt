@@ -156,7 +156,7 @@ export function HouseDetail() {
                 </Badge>
                 <div className="flex items-center text-muted-foreground text-sm">
                   <MapPin className="mr-1 h-4 w-4" />
-                  {house.address}, {house.city}
+                  {[house.address, house.estate, house.town, house.county || house.city].filter(Boolean).join(", ")}
                 </div>
               </div>
               <h1 className="text-4xl font-bold tracking-tight mb-4">{house.title}</h1>

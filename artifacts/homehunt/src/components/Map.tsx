@@ -51,6 +51,14 @@ function Recenter({ center, zoom }: { center: [number, number]; zoom: number }) 
   useEffect(() => {
     map.setView([lat, lng], zoom);
   }, [map, lat, lng, zoom]);
+
+  // Leaflet measures its box once; re-measure when the layout around it
+  // changes (sidebar loading, window resize) so no grey strips appear.
+  useEffect(() => {
+    const observer = new ResizeObserver(() => map.invalidateSize());
+    observer.observe(map.getContainer());
+    return () => observer.disconnect();
+  }, [map]);
   return null;
 }
 

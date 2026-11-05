@@ -46,12 +46,12 @@ export function HouseCard({ house }: { house: House }) {
   return (
     <Link href={`/house/${house.id}`}>
       <div className="group rounded-xl border bg-card text-card-foreground overflow-hidden hover-elevate transition-all cursor-pointer h-full flex flex-col">
-        <div className="aspect-[4/3] relative bg-muted">
+        <div className="aspect-[4/3] relative bg-muted overflow-hidden">
           {house.images && house.images.length > 0 ? (
             <img 
               src={house.images[0]} 
               alt={house.title} 
-              className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-500"
+              className="absolute inset-0 object-cover w-full h-full group-hover:scale-105 transition-transform duration-500"
             />
           ) : (
             <div className="flex items-center justify-center w-full h-full text-muted-foreground">

@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { useSearch } from "wouter";
+import { PROPERTY_TYPES } from "@/lib/property-types";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { PropertyMap } from "@/components/Map";
 import { useListHouses, getListHousesQueryKey } from "@workspace/api-client-react";
@@ -9,15 +11,29 @@ import { Button } from "@/components/ui/button";
 import { Loader2, Search, SlidersHorizontal, MapPin, X } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetHeader } from "@/components/ui/sheet";
-import { getCountyNames, getTownsForCounty, getEstatesForTown } from "@/lib/kenya-locations";
+import { getCountyNames, getTownsForCounty, getEstatesForTown, getCountyCenter, getTownCenter } from "@/lib/kenya-locations";
 
 export function MapPage() {
-  const [county, setCounty] = useState<string>("all");
-  const [town, setTown] = useState<string>("all");
+  // Filters can arrive in the URL, e.g. /map?county=Nairobi&bedrooms=2&maxRent=50000
+  const params = new URLSearchParams(useSearch());
+  const initialCounty = params.get("county");
+  const [county, setCounty] = useState<string>(
+    initialCounty && getCountyNames().includes(initialCounty) ? initialCounty : "all",
+  );
+  const initialTown = params.get("town");
+  const [town, setTown] = useState<string>(
+    initialCounty && initialTown && getTownsForCounty(initialCounty).some((t) => t.name === initialTown) ? initialTown : "all",
+  );
+  const initialType = params.get("type");
+  const [propertyType, setPropertyType] = useState<string>(
+    initialType && (PROPERTY_TYPES as readonly string[]).includes(initialType) ? initialType : "all",
+  );
   const [estate, setEstate] = useState<string>("all");
-  const [minRent, setMinRent] = useState<string>("");
-  const [maxRent, setMaxRent] = useState<string>("");
-  const [bedrooms, setBedrooms] = useState<string>("all");
+  const [minRent, setMinRent] = useState<string>(params.get("minRent") ?? "");
+  const [maxRent, setMaxRent] = useState<string>(params.get("maxRent") ?? "");
+  const [bedrooms, setBedrooms] = useState<string>(
+    ["1", "2", "3", "4"].includes(params.get("bedrooms") ?? "") ? params.get("bedrooms")! : "all",
+  );
   const [status, setStatus] = useState<"vacant" | "occupied" | "all">("vacant");
 
   const queryParams = {
@@ -30,15 +46,17 @@ export function MapPage() {
     ...(bedrooms !== "all" && { bedrooms: parseInt(bedrooms) }),
   };
 
-  const { data: houses, isLoading } = useListHouses(queryParams, {
+  const { data: allHouses, isLoading } = useListHouses(queryParams, {
     query: { queryKey: getListHousesQueryKey(queryParams) }
   });
+
+  const houses = propertyType === "all" ? allHouses : allHouses?.filter((h) => h.propertyType === propertyType);
 
   const countyNames = getCountyNames();
   const towns = county !== "all" ? getTownsForCounty(county) : [];
   const estates = county !== "all" && town !== "all" ? getEstatesForTown(county, town) : [];
 
-  const hasFilters = county !== "all" || town !== "all" || estate !== "all" || minRent || maxRent || bedrooms !== "all" || status !== "vacant";
+  const hasFilters = county !== "all" || town !== "all" || estate !== "all" || minRent || maxRent || bedrooms !== "all" || status !== "vacant" || propertyType !== "all";
   const statusLabel = status === "all" ? "" : `${status} `;
 
   const clearFilters = () => {
@@ -49,6 +67,7 @@ export function MapPage() {
     setMaxRent("");
     setBedrooms("all");
     setStatus("vacant");
+    setPropertyType("all");
   };
 
   const FilterContent = () => (
@@ -104,6 +123,22 @@ export function MapPage() {
           </Select>
         </div>
       )}
+
+      {/* Property type */}
+      <div className="space-y-2">
+        <label className="text-sm font-medium">Type of house</label>
+        <Select value={propertyType} onValueChange={setPropertyType}>
+          <SelectTrigger>
+            <SelectValue placeholder="Any type" />
+          </SelectTrigger>
+          <SelectContent className="max-h-60">
+            <SelectItem value="all">Any type</SelectItem>
+            {PROPERTY_TYPES.map((t) => (
+              <SelectItem key={t} value={t}>{t}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
       {/* Rent range */}
       <div className="grid grid-cols-2 gap-2">
@@ -257,7 +292,13 @@ export function MapPage() {
 
         {/* Map */}
         <div className="flex-1 h-full w-full relative">
-          <PropertyMap houses={houses || []} />
+          <PropertyMap
+            houses={houses || []}
+            {...(county !== "all" && {
+              center: town !== "all" ? getTownCenter(county, town) : getCountyCenter(county),
+              zoom: town !== "all" ? 13 : 10,
+            })}
+          />
         </div>
       </div>
     </MainLayout>

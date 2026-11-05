@@ -8,6 +8,7 @@ import { useAuth } from "@clerk/react";
 import { useCreateHouse, useUpdateHouse, useGetHouse, getGetHouseQueryKey } from "@workspace/api-client-react";
 import { useUpload } from "@workspace/object-storage-web";
 import { compressImage } from "@/lib/compress-image";
+import { PROPERTY_TYPES } from "@/lib/property-types";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -26,17 +27,6 @@ import {
   getCountyCenter,
 } from "@/lib/kenya-locations";
 
-const PROPERTY_TYPES = [
-  "Apartment",
-  "Bedsitter",
-  "Single Room",
-  "Studio",
-  "Maisonette",
-  "Bungalow",
-  "Townhouse",
-  "Villa",
-  "Commercial Space",
-];
 
 // Radix Select does not allow an empty-string item value
 const ESTATE_NONE = "__none__";

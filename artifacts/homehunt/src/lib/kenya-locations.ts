@@ -1,3 +1,5 @@
+import { EXTRA_TOWNS } from "./kenya-towns.generated";
+
 export interface CountyData {
   name: string;
   towns: TownData[];
@@ -62,15 +64,6 @@ export const KENYA_COUNTIES: CountyData[] = [
     ],
   },
   {
-    name: "Eldoret",
-    center: [0.5143, 35.2698],
-    towns: [
-      { name: "Eldoret Town", estates: ["Langas", "Huruma", "Kimumu", "Elgon View", "Pioneer", "Kapsoya", "Annex"], center: [0.5143, 35.2698] },
-      { name: "Turbo", estates: ["Turbo Town", "Matunda"], center: [0.6304, 35.0453] },
-      { name: "Ziwa", estates: ["Ziwa area"], center: [0.5800, 35.3200] },
-    ],
-  },
-  {
     name: "Kiambu",
     center: [-1.0310, 36.8313],
     towns: [
@@ -118,15 +111,6 @@ export const KENYA_COUNTIES: CountyData[] = [
       { name: "Nyeri Town", estates: ["Nyeri CBD", "Ruring'u", "Kamakwa", "Gatitu"], center: [-0.4167, 36.9500] },
       { name: "Karatina", estates: ["Karatina Town", "Gaichanjiru"], center: [-0.4878, 37.1248] },
       { name: "Othaya", estates: ["Othaya Town"], center: [-0.5621, 36.9272] },
-    ],
-  },
-  {
-    name: "Muranga",
-    center: [-0.7178, 37.1527],
-    towns: [
-      { name: "Muranga Town", estates: ["Muranga CBD", "Makuyu"], center: [-0.7178, 37.1527] },
-      { name: "Thika (Muranga)", estates: ["Kenol", "Makuyu"], center: [-0.8671, 37.2066] },
-      { name: "Kangema", estates: ["Kangema Town"], center: [-0.7459, 36.9749] },
     ],
   },
   {
@@ -238,8 +222,9 @@ export const KENYA_COUNTIES: CountyData[] = [
     name: "Uasin Gishu",
     center: [0.5143, 35.2698],
     towns: [
-      { name: "Eldoret", estates: ["Langas", "Huruma", "Kimumu", "Elgon View", "Pioneer", "Kapsoya", "Annex", "Huruma"], center: [0.5143, 35.2698] },
-      { name: "Turbo", estates: ["Turbo Town"], center: [0.6304, 35.0453] },
+      { name: "Eldoret", estates: ["Langas", "Huruma", "Kimumu", "Elgon View", "Pioneer", "Kapsoya", "Annex"], center: [0.5143, 35.2698] },
+      { name: "Turbo", estates: ["Turbo Town", "Matunda"], center: [0.6304, 35.0453] },
+      { name: "Ziwa", estates: ["Ziwa area"], center: [0.5800, 35.3200] },
       { name: "Burnt Forest", estates: ["Burnt Forest Town"], center: [0.6534, 35.4176] },
     ],
   },
@@ -442,11 +427,76 @@ export const KENYA_COUNTIES: CountyData[] = [
     center: [-0.7178, 37.1527],
     towns: [
       { name: "Murang'a Town", estates: ["Murang'a CBD"], center: [-0.7178, 37.1527] },
-      { name: "Kenol", estates: ["Kenol Town"], center: [-0.9057, 37.2022] },
+      { name: "Kenol", estates: ["Kenol Town", "Makuyu"], center: [-0.9057, 37.2022] },
       { name: "Maragua", estates: ["Maragua Town"], center: [-0.8334, 37.1363] },
+      { name: "Kangema", estates: ["Kangema Town"], center: [-0.7459, 36.9749] },
     ],
   },
 ];
+
+// ---------------------------------------------------------------------------
+// Add the smaller towns of every county (from kenya-towns.generated.ts) to the
+// hand-curated towns above, skipping ones that are already there.
+// ---------------------------------------------------------------------------
+const townKey = (name: string) =>
+  name.toLowerCase().replace(/\s+town$/, "").replace(/\s*\(.*\)$/, "").replace(/[^a-z]/g, "");
+
+for (const county of KENYA_COUNTIES) {
+  const extra = EXTRA_TOWNS[county.name] ?? [];
+  for (const town of extra) {
+    const k = townKey(town.name);
+    const duplicate = county.towns.some(
+      (t) =>
+        townKey(t.name) === k ||
+        (Math.abs(t.center[0] - town.center[0]) < 0.01 && Math.abs(t.center[1] - town.center[1]) < 0.01),
+    );
+    if (!duplicate) county.towns.push({ name: town.name, estates: [], center: town.center });
+  }
+  county.towns.sort((x, y) => x.name.localeCompare(y.name));
+}
+
+export interface PlaceMatch {
+  county: string;
+  /** Empty when the match is the county itself */
+  town: string;
+  label: string;
+}
+
+/**
+ * Find counties, towns and estates by name, e.g. "eldoret" → Eldoret, Uasin Gishu.
+ * Matches at the start of a word rank first.
+ */
+export function searchPlaces(query: string, limit = 8): PlaceMatch[] {
+  const q = query.trim().toLowerCase();
+  if (q.length < 2) return [];
+  const scored: { m: PlaceMatch; score: number }[] = [];
+  const score = (name: string) => {
+    const n = name.toLowerCase();
+    if (n === q) return 0;
+    if (n.startsWith(q)) return 1;
+    if (n.split(/[\s'-]+/).some((w) => w.startsWith(q))) return 2;
+    if (n.includes(q)) return 3;
+    return -1;
+  };
+  for (const county of KENYA_COUNTIES) {
+    const cs = score(county.name);
+    if (cs >= 0) scored.push({ m: { county: county.name, town: "", label: `${county.name} County` }, score: cs });
+    for (const town of county.towns) {
+      const ts = score(town.name);
+      if (ts >= 0) scored.push({ m: { county: county.name, town: town.name, label: `${town.name}, ${county.name}` }, score: ts + 0.5 });
+      for (const estate of town.estates) {
+        const es = score(estate);
+        if (es >= 0) scored.push({ m: { county: county.name, town: town.name, label: `${estate}, ${town.name} (${county.name})` }, score: es + 0.8 });
+      }
+    }
+  }
+  const seen = new Set<string>();
+  return scored
+    .sort((a, b) => a.score - b.score || a.m.label.localeCompare(b.m.label))
+    .filter(({ m }) => (seen.has(m.label) ? false : (seen.add(m.label), true)))
+    .slice(0, limit)
+    .map(({ m }) => m);
+}
 
 export function getCountyNames(): string[] {
   return KENYA_COUNTIES.map((c) => c.name).sort();
